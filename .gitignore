@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Environment files
+.env
+.env.backup
+.env.production
+.env.*
+!.env.example
+
+# Build & cache
+dist/
+dist-ssr/
+.phpunit.result.cache
+.phpunit.cache/
+
+# System and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
