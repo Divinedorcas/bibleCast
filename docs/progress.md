@@ -88,7 +88,11 @@ bibleCast/
 - [x] Configured backend authentication infrastructure in [`BCbackend`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend):
   - Installed and configured Laravel Sanctum (`config/sanctum.php`).
   - Added user roles migration (`add_role_to_users_table.php`).
-  - Implemented initial API authentication controller (`AuthController.php`) and API routes.
+  - Implemented multi-layered authentication pattern:
+    - **Form Requests:** [`RegisterRequest.php`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend/app/Http/Requests/Auth/RegisterRequest.php) and [`LoginRequest.php`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend/app/Http/Requests/Auth/LoginRequest.php).
+    - **Service Layer:** [`AuthService.php`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend/app/Services/AuthService.php) handling registration, credential verification, Sanctum token issuance/revocation, and user profile retrieval.
+    - **Controller Layer:** [`AuthController.php`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend/app/Http/Controllers/Api/V1/AuthController.php) with endpoints: `POST /api/v1/register`, `POST /api/v1/login`, `GET /api/v1/user`, and `POST /api/v1/logout`.
+    - **Automated Tests:** [`AuthTest.php`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend/tests/Feature/AuthTest.php) with 7 test cases (35 assertions) passing.
 - [x] Executed granular Git commits with frontend and backend segregated:
   - **Backend Commit (`4096f88`):** `feat(backend): configure Laravel Sanctum, role migration, and AuthController`
   - **Frontend Commit (`7d51928`):** `chore(frontend): update vite dependency in package.json and lockfile`
