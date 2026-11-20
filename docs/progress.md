@@ -93,9 +93,13 @@ bibleCast/
     - **Service Layer:** [`AuthService.php`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend/app/Services/AuthService.php) handling registration, credential verification, Sanctum token issuance/revocation, and user profile retrieval.
     - **Controller Layer:** [`AuthController.php`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend/app/Http/Controllers/Api/V1/AuthController.php) with endpoints: `POST /api/v1/register`, `POST /api/v1/login`, `GET /api/v1/user`, and `POST /api/v1/logout`.
     - **Automated Tests:** [`AuthTest.php`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend/tests/Feature/AuthTest.php) with 7 test cases (35 assertions) passing.
-- [x] Executed granular Git commits with frontend and backend segregated:
-  - **Backend Commit (`4096f88`):** `feat(backend): configure Laravel Sanctum, role migration, and AuthController`
-  - **Frontend Commit (`7d51928`):** `chore(frontend): update vite dependency in package.json and lockfile`
+- [x] Implemented frontend authentication and operator dashboard in [`BCfrontend`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend):
+  - **API Client & Auth Service:** Configured Axios instance with Bearer token interceptor ([`api.js`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend/src/services/api.js)) and [`authService.js`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend/src/services/authService.js).
+  - **Auth State Management:** Created [`AuthContext.jsx`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend/src/context/AuthContext.jsx) providing global session state, persistent login, and auto-logout on token expiration.
+  - **Route Protection:** Added [`ProtectedRoute.jsx`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend/src/components/common/ProtectedRoute.jsx) and [`GuestRoute.jsx`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend/src/components/common/GuestRoute.jsx).
+  - **Auth Views:** Built sanctuary-themed [`Login.jsx`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend/src/pages/Login.jsx) and [`Register.jsx`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend/src/pages/Register.jsx) with password toggles, validation, and role selection.
+  - **Console Layout & Dashboard:** Developed [`DashboardLayout.jsx`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend/src/layouts/DashboardLayout.jsx) (media booth header, live clock, user pill, logout) and [`Dashboard.jsx`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend/src/pages/Dashboard.jsx) (registered user dashboard, quick launch modules, profile details, and sanctuary status).
+  - **Production Build:** Successfully verified production bundle with Vite (`npm run build`).
 
 ---
 
