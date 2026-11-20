@@ -79,10 +79,15 @@ bibleCast/
 
 ---
 
-### 2026-11-20 (Day 2) &mdash; Progress Tracking Setup & Next Steps Planning
+### 2026-11-20 (Day 2) &mdash; Progress Tracking Setup & Git Version Control
 
 #### Tasks Completed:
 - [x] Created unified progress and daily task tracking document at [`docs/progress.md`](file:///c:/Users/Dorcas/Desktop/bibleCast/docs/progress.md).
+- [x] Configured root [`.gitignore`](file:///c:/Users/Dorcas/Desktop/bibleCast/.gitignore) ensuring sensitive files (`.env`, `node_modules/`, `vendor/`) are excluded.
+- [x] Executed granular Git commits with frontend and backend segregated:
+  - **Commit 1 (`73231b7`):** `docs: add project specifications, architecture, and progress tracking`
+  - **Commit 2 (`6f14f62`):** `feat(backend): initialize Laravel 12 backend for BibleCast`
+  - **Commit 3 (`d3a7bfd`):** `feat(frontend): initialize React 18 + Vite frontend for BibleCast`
 - [x] Verified healthy workspace status across both frontend and backend directories.
 
 ---
