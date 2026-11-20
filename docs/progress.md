@@ -79,16 +79,19 @@ bibleCast/
 
 ---
 
-### 2026-11-20 (Day 2) &mdash; Progress Tracking Setup & Git Version Control
+### 2026-11-20 (Day 2) &mdash; Progress Tracking, Auth Foundation & Git Version Control
 
 #### Tasks Completed:
 - [x] Created unified progress and daily task tracking document at [`docs/progress.md`](file:///c:/Users/Dorcas/Desktop/bibleCast/docs/progress.md).
 - [x] Configured root [`.gitignore`](file:///c:/Users/Dorcas/Desktop/bibleCast/.gitignore) ensuring sensitive files (`.env`, `node_modules/`, `vendor/`) are excluded.
+- [x] Initialized Git repository and connected remote origin (`https://github.com/Divinedorcas/bibleCast.git`).
+- [x] Configured backend authentication infrastructure in [`BCbackend`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend):
+  - Installed and configured Laravel Sanctum (`config/sanctum.php`).
+  - Added user roles migration (`add_role_to_users_table.php`).
+  - Implemented initial API authentication controller (`AuthController.php`) and API routes.
 - [x] Executed granular Git commits with frontend and backend segregated:
-  - **Commit 1 (`73231b7`):** `docs: add project specifications, architecture, and progress tracking`
-  - **Commit 2 (`6f14f62`):** `feat(backend): initialize Laravel 12 backend for BibleCast`
-  - **Commit 3 (`d3a7bfd`):** `feat(frontend): initialize React 18 + Vite frontend for BibleCast`
-- [x] Verified healthy workspace status across both frontend and backend directories.
+  - **Backend Commit (`4096f88`):** `feat(backend): configure Laravel Sanctum, role migration, and AuthController`
+  - **Frontend Commit (`7d51928`):** `chore(frontend): update vite dependency in package.json and lockfile`
 
 ---
 
