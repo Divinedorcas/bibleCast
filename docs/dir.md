@@ -10,7 +10,7 @@ BibleCast/
 │   │   │
 │   │   ├── Http/
 │   │   │   ├── Controllers/
-│   │   │   │   └── Api/V1/
+│   │   │   │   └── Api
 │   │   │   │       ├── AuthController.php
 │   │   │   │       ├── UserController.php
 │   │   │   │       ├── ServiceController.php

@@ -128,6 +128,19 @@ bibleCast/
 
 ---
 
+### 2026-11-21 (Day 4) &mdash; Bible Provider Architecture & Scripture Lookup Engine
+
+#### Objectives:
+- [x] Create `BibleProviderInterface` with methods for passage retrieval, text search, and translation listing.
+- [x] Implement concrete `BibleApiService` consuming `https://bible-api.com` with caching, timeout, and safety guards.
+- [x] Implement `PassageResolver` service for translation fallback and speech-to-reference parsing.
+- [x] Implement `BibleController` exposing `/api/v1/bible/translations`, `/api/v1/bible/passage`, `/api/v1/bible/search`, and `/api/v1/bible/parse-reference`.
+- [x] Register container binding in `AppServiceProvider`.
+- [x] Implement frontend `bibleService.js` and connect dashboard quick search widget.
+- [x] Create automated feature tests in `BibleTest.php` with 100% pass rate (8 passed, 20 assertions).
+
+---
+
 ## 📝 Daily Log Template (For Future Entries)
 
 ```markdown
