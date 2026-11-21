@@ -162,13 +162,3 @@ export function Login() {
     </div>
   );
 }
-
-
-
-
-
-src / pages / BibleSearch.jsx
-src / components / bible / BibleSearchForm.jsx
-src / components / bible / TranslationSelector.jsx
-src / components / bible / PassageDisplay.jsx
-src / services / bibleService.js

@@ -26,7 +26,9 @@ import { ERROR_KIND } from '../../utils/errorHandler';
 export function ErrorAlert({ error, onDismiss, className = '', showFields = true }) {
   if (!error) return null;
 
-  const config = getConfig(error.kind);
+  const config = getConfig(error?.kind);
+  const errorMessage = typeof error === 'string' ? error : (error?.message || 'An unexpected error occurred.');
+  const hasFields = Boolean(error?.hasFieldErrors && error?.fields && Object.keys(error.fields).length > 0);
 
   return (
     <div
@@ -43,11 +45,11 @@ export function ErrorAlert({ error, onDismiss, className = '', showFields = true
           <span className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${config.badge}`}>
             {config.label}
           </span>
-          <span className={config.text}>{error.message}</span>
+          <span className={config.text}>{errorMessage}</span>
         </div>
 
         {/* Per-field validation list (422 only) */}
-        {showFields && error.hasFieldErrors && (
+        {showFields && hasFields && (
           <ul className={`mt-1.5 space-y-0.5 list-disc list-inside ${config.text} opacity-80`}>
             {Object.entries(error.fields).map(([field, msg]) => (
               <li key={field}>
