@@ -8,6 +8,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { BibleSearch } from './pages/BibleSearch';
+import { History } from './pages/History';
 
 export default function App() {
   return (
@@ -56,6 +57,18 @@ export default function App() {
             }
           />
           <Route path="/bible-search" element={<Navigate to="/search" replace />} />
+
+          {/* History & Favourites */}
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout title="History & Favourites">
+                  <History />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
 
           {/* Root Redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

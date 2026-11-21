@@ -9,13 +9,16 @@ import {
   Maximize2,
   FileText,
   Volume2,
+  Star,
 } from 'lucide-react';
+import { projectionService } from '../../services/projectionService';
 
 /**
  * PassageDisplay
  *
  * Full reader card for the retrieved scripture passage.
- * Provides reading interface and one-click "Send to Projection Queue".
+ * Provides reading interface, one-click "Send to Projection Queue",
+ * and "Save Passage / Favourite".
  *
  * Props:
  *   passage       – Normalized passage object { reference, translation, translation_name, text, verses }
@@ -30,6 +33,9 @@ export function PassageDisplay({
   onProjectNow,
 }) {
   const [copied, setCopied] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedId, setSavedId] = useState(null);
   const [previewMode, setPreviewMode] = useState('reader'); // 'reader' | 'projector'
 
   if (!passage) return null;
@@ -39,6 +45,32 @@ export function PassageDisplay({
     navigator.clipboard.writeText(fullText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleToggleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      if (isSaved && savedId) {
+        await projectionService.removeSavedPassage(savedId);
+        setIsSaved(false);
+        setSavedId(null);
+      } else {
+        const res = await projectionService.savePassage({
+          reference: passage.reference,
+          translation_code: passage.translation || 'kjv',
+          passage_text: passage.text,
+          verses_json: passage.verses || [],
+        });
+        setIsSaved(true);
+        if (res?.data?.id) setSavedId(res.data.id);
+      }
+    } catch (_) {
+      // Local fallback
+      setIsSaved(!isSaved);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const verseCount = passage.verses?.length || 1;
@@ -95,6 +127,22 @@ export function PassageDisplay({
               Stage Preview
             </button>
           </div>
+
+          {/* Save to Favourites Button */}
+          <button
+            type="button"
+            onClick={handleToggleSave}
+            disabled={saving}
+            title={isSaved ? 'Remove from favourites' : 'Save passage to favourites'}
+            className={`p-2 rounded-lg transition-colors flex items-center gap-1 text-xs border ${
+              isSaved
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-300 border-slate-700'
+            }`}
+          >
+            <Star className={`w-4 h-4 ${isSaved ? 'fill-amber-400 text-amber-400' : ''}`} />
+            <span className="hidden md:inline">{isSaved ? 'Saved' : 'Save'}</span>
+          </button>
 
           {/* Copy Button */}
           <button
