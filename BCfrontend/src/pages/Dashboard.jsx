@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
+import { ErrorAlert } from '../components/common/ErrorAlert';
+import { bibleService } from '../services/bibleService';
 import {
   Tv,
   Radio,
@@ -26,25 +28,46 @@ import {
 function QuickBibleSearch() {
   const [query, setQuery] = useState('');
   const [translation, setTranslation] = useState('kjv');
+  const [availableTranslations, setAvailableTranslations] = useState([
+    { code: 'kjv', name: 'King James Version' },
+    { code: 'web', name: 'World English Bible' },
+  ]);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    bibleService.getTranslations()
+      .then((res) => {
+        if (isMounted && res?.data && res.data.length > 0) {
+          setAvailableTranslations(res.data);
+          const def = res.data.find((t) => t.is_default);
+          if (def) setTranslation(def.code);
+        }
+      })
+      .catch(() => {
+        // Fallback to defaults already in state
+      });
+    return () => { isMounted = false; };
+  }, []);
 
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!query.trim()) return;
     setLoading(true);
-    setError('');
+    setError(null);
     setResult(null);
+
     try {
-      const encoded = encodeURIComponent(query.trim());
-      const res = await fetch(`https://bible-api.com/${encoded}?translation=${translation}`);
-      if (!res.ok) throw new Error('Reference not found');
-      const data = await res.json();
-      if (!data.text) throw new Error('No text returned');
-      setResult(data);
+      const response = await bibleService.getPassage(query.trim(), translation);
+      if (response && response.data) {
+        setResult(response.data);
+      } else {
+        throw new Error('No passage found.');
+      }
     } catch (err) {
-      setError(err.message || 'Could not retrieve passage.');
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -68,8 +91,11 @@ function QuickBibleSearch() {
           onChange={(e) => setTranslation(e.target.value)}
           className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-semibold text-amber-400 focus:outline-none focus:border-amber-500 cursor-pointer"
         >
-          <option value="kjv">KJV</option>
-          <option value="web">WEB</option>
+          {availableTranslations.map((t) => (
+            <option key={t.code} value={t.code}>
+              {t.code.toUpperCase()}
+            </option>
+          ))}
         </select>
         <button
           type="submit"
@@ -80,22 +106,18 @@ function QuickBibleSearch() {
         </button>
       </div>
 
-      {error && (
-        <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-md px-3 py-2">
-          {error}
-        </p>
-      )}
+      <ErrorAlert error={error} onDismiss={() => setError(null)} />
 
       {result && (
         <div className="bg-slate-950/80 border border-slate-800 rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-amber-300 font-serif">{result.reference}</span>
             <span className="text-[10px] uppercase font-mono text-slate-500 bg-slate-800 px-1.5 py-0.5 rounded">
-              {result.translation_id?.toUpperCase() || translation.toUpperCase()}
+              {result.translation?.toUpperCase() || translation.toUpperCase()}
             </span>
           </div>
           <p className="text-sm text-slate-200 font-serif leading-relaxed italic">
-            &ldquo;{result.text.trim()}&rdquo;
+            &ldquo;{result.text?.trim()}&rdquo;
           </p>
           <div className="mt-2 pt-2 border-t border-slate-800">
             <Link

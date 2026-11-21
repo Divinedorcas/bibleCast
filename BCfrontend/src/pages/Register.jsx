@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Mail, Lock, Shield, Eye, EyeOff, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { User, Mail, Lock, Shield, Eye, EyeOff, Loader2, Sparkles } from 'lucide-react';
+import { ErrorAlert } from '../components/common/ErrorAlert';
+import { classifyError } from '../utils/errorHandler';
 
 export function Register() {
   const { register } = useAuth();
@@ -16,28 +18,29 @@ export function Register() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading]           = useState(false);
+  const [appError, setAppError]         = useState(null);   // AppError | null
 
   const handleChange = (e) => {
     setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
     }));
-    if (errorMessage) setErrorMessage('');
+    if (appError) setAppError(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrorMessage('');
+    setAppError(null);
 
+    // Client-side password validation — build a plain AppError-like object
     if (formData.password !== formData.password_confirmation) {
-      setErrorMessage('Passwords do not match. Please re-enter.');
+      setAppError(classifyError({ response: { status: 422, data: { message: 'Passwords do not match. Please re-enter.', errors: {} } } }));
       return;
     }
 
     if (formData.password.length < 8) {
-      setErrorMessage('Password must be at least 8 characters in length.');
+      setAppError(classifyError({ response: { status: 422, data: { message: 'Password must be at least 8 characters.', errors: {} } } }));
       return;
     }
 
@@ -53,7 +56,8 @@ export function Register() {
       });
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setErrorMessage(err.message || 'Registration failed. Please check your information.');
+      // err is already an AppError thrown by AuthContext
+      setAppError(err);
     } finally {
       setLoading(false);
     }
@@ -80,12 +84,11 @@ export function Register() {
 
         {/* Card Box */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-sm">
-          {errorMessage && (
-            <div className="mb-5 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-start gap-2.5 text-xs text-rose-300 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
+          <ErrorAlert
+            error={appError}
+            onDismiss={() => setAppError(null)}
+            className="mb-5"
+          />
 
           <form onSubmit={handleSubmit} className="space-y-3.5">
             {/* Full Name */}

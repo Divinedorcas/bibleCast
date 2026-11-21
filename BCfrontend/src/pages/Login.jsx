@@ -15,8 +15,8 @@ export function Login() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading]           = useState(false);
-  const [appError, setAppError]         = useState(null);   // AppError | null
+  const [loading, setLoading] = useState(false);
+  const [appError, setAppError] = useState(null);   // AppError | null
 
   const from = location.state?.from?.pathname || '/dashboard';
 
@@ -62,12 +62,11 @@ export function Login() {
 
         {/* Card Box */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-sm">
-          {errorMessage && (
-            <div className="mb-5 p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-start gap-2.5 text-xs text-rose-300 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
+          <ErrorAlert
+            error={appError}
+            onDismiss={() => setAppError(null)}
+            className="mb-5"
+          />
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email Field */}
@@ -163,3 +162,13 @@ export function Login() {
     </div>
   );
 }
+
+
+
+
+
+src / pages / BibleSearch.jsx
+src / components / bible / BibleSearchForm.jsx
+src / components / bible / TranslationSelector.jsx
+src / components / bible / PassageDisplay.jsx
+src / services / bibleService.js
