@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Mail, Eye, EyeOff, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, Loader2, Sparkles } from 'lucide-react';
+import { ErrorAlert } from '../components/common/ErrorAlert';
 
 export function Login() {
   const { login } = useAuth();
@@ -14,32 +15,27 @@ export function Login() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading]           = useState(false);
+  const [appError, setAppError]         = useState(null);   // AppError | null
 
   const from = location.state?.from?.pathname || '/dashboard';
 
   const handleChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-    if (errorMessage) setErrorMessage('');
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    if (appError) setAppError(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrorMessage('');
+    setAppError(null);
     setLoading(true);
 
     try {
-      await login({
-        email: formData.email,
-        password: formData.password,
-      });
+      await login({ email: formData.email, password: formData.password });
       navigate(from, { replace: true });
     } catch (err) {
-      setErrorMessage(err.message || 'Login failed. Please verify your credentials.');
+      // err is already an AppError thrown by AuthContext
+      setAppError(err);
     } finally {
       setLoading(false);
     }

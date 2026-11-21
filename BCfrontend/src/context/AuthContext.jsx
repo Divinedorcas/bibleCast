@@ -57,7 +57,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
-   * Log in with email and password
+   * Log in with email and password.
+   * Throws an AppError on failure (already classified by api.js interceptor).
    */
   const login = useCallback(async (credentials) => {
     setError(null);
@@ -72,18 +73,16 @@ export function AuthProvider({ children }) {
       localStorage.setItem('biblecast_user', JSON.stringify(authUser));
 
       return { success: true, user: authUser };
-    } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        err.response?.data?.errors?.email?.[0] ||
-        'Unable to log in. Please check your credentials.';
-      setError(message);
-      throw new Error(message);
+    } catch (appError) {
+      // appError is already an AppError — set it on context and re-throw
+      setError(appError);
+      throw appError;
     }
   }, []);
 
   /**
-   * Register a new user
+   * Register a new user.
+   * Throws an AppError on failure.
    */
   const register = useCallback(async (data) => {
     setError(null);
@@ -98,13 +97,9 @@ export function AuthProvider({ children }) {
       localStorage.setItem('biblecast_user', JSON.stringify(authUser));
 
       return { success: true, user: authUser };
-    } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        err.response?.data?.errors?.email?.[0] ||
-        'Registration failed. Please check form inputs.';
-      setError(message);
-      throw new Error(message);
+    } catch (appError) {
+      setError(appError);
+      throw appError;
     }
   }, []);
 
