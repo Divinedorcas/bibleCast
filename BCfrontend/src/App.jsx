@@ -7,6 +7,7 @@ import { DashboardLayout } from './layouts/DashboardLayout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
+import { BibleSearch } from './pages/BibleSearch';
 
 export default function App() {
   return (
@@ -36,12 +37,25 @@ export default function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardLayout>
+                <DashboardLayout title="Dashboard">
                   <Dashboard />
                 </DashboardLayout>
               </ProtectedRoute>
             }
           />
+
+          {/* Scripture Search */}
+          <Route
+            path="/search"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout title="Scripture Search">
+                  <BibleSearch />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/bible-search" element={<Navigate to="/search" replace />} />
 
           {/* Root Redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

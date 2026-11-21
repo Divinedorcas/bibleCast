@@ -91,7 +91,7 @@ export function Sidebar({ open = true, onClose }) {
               <span className="font-bold text-base text-slate-100 leading-none">
                 Bible<span className="text-amber-400">Cast</span>
               </span>
-              <p className="text-[10px] text-slate-500 mt-0.5">Booth v1.0</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">JE biblecast v1.0</p>
             </div>
           </div>
           <button
@@ -111,10 +111,9 @@ export function Sidebar({ open = true, onClose }) {
               end={to === '/dashboard'}
               onClick={onClose}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
+                  ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                 }`
               }
             >

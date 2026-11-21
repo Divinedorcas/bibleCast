@@ -31,9 +31,9 @@ export function DashboardLayout({ title = 'Dashboard', children }) {
         <footer className="bg-slate-900/80 border-t border-slate-800/60 px-4 py-2 text-[11px] text-slate-500 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Session Active &bull; Sanctum Token Valid</span>
+            <span>Session Active &bull; </span>
           </div>
-          <span>BibleCast v1.0 &mdash; Sanctuary Media Console</span>
+          <span>BibleCast v1.0 &mdash; JE Media Console</span>
         </footer>
       </div>
     </div>
