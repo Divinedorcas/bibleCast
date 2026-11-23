@@ -9,6 +9,7 @@ import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { BibleSearch } from './pages/BibleSearch';
 import { History } from './pages/History';
+import { Queue } from './pages/Queue';
 import { Projector } from './pages/Projector';
 
 export default function App() {
@@ -69,6 +70,18 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout title="History & Favourites">
                   <History />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Service Projection Queue */}
+          <Route
+            path="/queue"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout title="Service Queue">
+                  <Queue />
                 </DashboardLayout>
               </ProtectedRoute>
             }

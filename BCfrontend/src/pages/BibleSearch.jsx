@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { BibleSearchForm } from '../components/bible/BibleSearchForm';
 import { PassageDisplay } from '../components/bible/PassageDisplay';
 import { ErrorAlert } from '../components/common/ErrorAlert';
 import { bibleService } from '../services/bibleService';
 import { projectionService } from '../services/projectionService';
+import { queueService } from '../services/queueService';
 import {
   BookOpen,
   Layers,
@@ -13,6 +15,8 @@ import {
   Tv,
   ExternalLink,
   CheckCircle2,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 
 export function BibleSearch() {
@@ -109,7 +113,40 @@ export function BibleSearch() {
   };
 
   const handleRemoveFromQueue = (id) => {
-    bibleService.removeFromQueue(id);
+    queueService.removeFromQueue(id);
+  };
+
+  const handleProjectFromQueue = async (item) => {
+    try {
+      await queueService.projectItem(item.id);
+      setToastMessage(`"${item.reference}" is now LIVE on sanctuary screens!`);
+      setTimeout(() => setToastMessage(''), 3500);
+    } catch (err) {
+      setError(err);
+    }
+  };
+
+  const handleMoveQueueItem = async (index, direction) => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= queue.length) return;
+
+    const reordered = [...queue];
+    const temp = reordered[index];
+    reordered[index] = reordered[targetIndex];
+    reordered[targetIndex] = temp;
+
+    setQueue(reordered);
+    await queueService.reorderQueue(reordered.map((i) => i.id));
+  };
+
+  const handleClearQueue = async () => {
+    if (queue.length === 0) return;
+    if (window.confirm('Clear all passages from the projection queue?')) {
+      await queueService.clearQueue();
+      setQueue([]);
+      setToastMessage('Projection queue cleared.');
+      setTimeout(() => setToastMessage(''), 3000);
+    }
   };
 
   const isCurrentPassageQueued = Boolean(
@@ -226,9 +263,26 @@ export function BibleSearch() {
               <Layers className="w-4 h-4 text-amber-400" />
               <h3 className="text-sm font-bold text-slate-100">Projection Queue</h3>
             </div>
-            <span className="text-[11px] font-mono text-slate-400">
-              {queue.length} ready
-            </span>
+            <div className="flex items-center gap-2">
+              <Link
+                to="/queue"
+                className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold flex items-center gap-1"
+                title="Open full queue manager"
+              >
+                <span>Manage</span>
+                <ExternalLink className="w-3 h-3" />
+              </Link>
+              {queue.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearQueue}
+                  className="text-[11px] text-slate-500 hover:text-rose-400 transition"
+                  title="Clear all"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
 
           {queue.length === 0 ? (
@@ -246,8 +300,29 @@ export function BibleSearch() {
                   className="p-3 bg-slate-950 border border-slate-800 rounded-lg group hover:border-amber-500/30 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Quick Up/Down arrows */}
+                        <div className="inline-flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveQueueItem(index, 'up')}
+                            disabled={index === 0}
+                            className="text-slate-600 hover:text-amber-400 disabled:opacity-20 p-0.5"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveQueueItem(index, 'down')}
+                            disabled={index === queue.length - 1}
+                            className="text-slate-600 hover:text-amber-400 disabled:opacity-20 p-0.5"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                          </button>
+                        </div>
                         <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
                           #{index + 1}
                         </span>
@@ -255,22 +330,35 @@ export function BibleSearch() {
                           {item.reference}
                         </h4>
                         <span className="text-[9px] uppercase font-mono text-slate-400 bg-slate-800 px-1 py-0.5 rounded">
-                          {item.translation.toUpperCase()}
+                          {(item.translation_code || item.translation || 'kjv').toUpperCase()}
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-400 font-serif line-clamp-2 mt-1.5 italic">
-                        &ldquo;{item.text}&rdquo;
+                        &ldquo;{item.text || item.passage_preview}&rdquo;
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveFromQueue(item.id)}
-                      className="text-slate-600 hover:text-rose-400 p-1 rounded transition-colors opacity-80 group-hover:opacity-100"
-                      title="Remove from queue"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                      {/* Project live button */}
+                      <button
+                        type="button"
+                        onClick={() => handleProjectFromQueue(item)}
+                        className="p-1 rounded bg-slate-800 hover:bg-amber-500 text-slate-400 hover:text-slate-950 transition-colors"
+                        title="Project Live"
+                      >
+                        <Tv className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Remove button */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFromQueue(item.id)}
+                        className="text-slate-600 hover:text-rose-400 p-1 rounded transition-colors"
+                        title="Remove from queue"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

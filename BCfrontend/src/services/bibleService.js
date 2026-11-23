@@ -1,4 +1,5 @@
 import api from './api';
+import { queueService } from './queueService';
 
 const QUEUE_STORAGE_KEY = 'biblecast_projection_queue';
 const broadcastChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
@@ -71,12 +72,7 @@ export const bibleService = {
    * @returns {Array} List of queued scripture passages
    */
   getQueue() {
-    try {
-      const saved = localStorage.getItem(QUEUE_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch (_) {
-      return [];
-    }
+    return queueService.getCachedQueue();
   },
 
   /**
@@ -87,56 +83,16 @@ export const bibleService = {
    * @returns {Object} Newly queued item
    */
   addToQueue(passage) {
-    try {
-      const currentQueue = this.getQueue();
-      const newItem = {
-        id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-        reference: passage.reference,
-        translation: passage.translation || 'kjv',
-        translation_name: passage.translation_name || '',
-        text: passage.text,
-        verses: passage.verses || [],
-        queuedAt: new Date().toISOString(),
-        status: 'queued', // 'queued' | 'projected' | 'dismissed'
-      };
-
-      const updated = [...currentQueue, newItem];
-      localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(updated));
-
-      // Notify other components & browser tabs
-      window.dispatchEvent(new CustomEvent('biblecast:queue_updated', { detail: updated }));
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({ type: 'QUEUE_UPDATED', queue: updated });
-      }
-
-      return newItem;
-    } catch (err) {
-      console.error('Failed to add passage to queue:', err);
-      throw err;
-    }
+    return queueService.addToQueue(passage);
   },
 
   /**
    * Remove a passage item from the projection queue.
    *
-   * @param {string} queueId
+   * @param {string|number} queueId
    * @returns {Array} Updated queue
    */
   removeFromQueue(queueId) {
-    try {
-      const currentQueue = this.getQueue();
-      const updated = currentQueue.filter((item) => item.id !== queueId);
-      localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(updated));
-
-      window.dispatchEvent(new CustomEvent('biblecast:queue_updated', { detail: updated }));
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({ type: 'QUEUE_UPDATED', queue: updated });
-      }
-
-      return updated;
-    } catch (err) {
-      console.error('Failed to remove passage from queue:', err);
-      return [];
-    }
+    return queueService.removeFromQueue(queueId);
   },
 };
