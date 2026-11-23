@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BibleController;
 use App\Http\Controllers\Api\ProjectionController;
+use App\Http\Controllers\Api\ProjectionQueueController;
 use App\Http\Controllers\Api\SavedPassageController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,6 +39,15 @@ $registerRoutes = function () {
     Route::get('/projections/current', [ProjectionController::class, 'current']);
     Route::post('/projections', [ProjectionController::class, 'store']);
     Route::post('/projections/clear', [ProjectionController::class, 'clear']);
+
+    // Projection Queue Endpoints
+    Route::get('/projection-queues', [ProjectionQueueController::class, 'index']);
+    Route::post('/projection-queues', [ProjectionQueueController::class, 'store']);
+    Route::post('/projection-queues/reorder', [ProjectionQueueController::class, 'reorder']);
+    Route::post('/projection-queues/clear', [ProjectionQueueController::class, 'clear']);
+    Route::delete('/projection-queues/clear', [ProjectionQueueController::class, 'clear']);
+    Route::delete('/projection-queues/{id}', [ProjectionQueueController::class, 'destroy']);
+    Route::post('/projection-queues/{id}/project', [ProjectionQueueController::class, 'project']);
 
     // Protected Routes (Sanctum Token Guarded)
     Route::middleware('auth:sanctum')->group(function () {
