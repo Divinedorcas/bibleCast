@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\ProjectionUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Projection;
 use Carbon\Carbon;
@@ -73,6 +74,18 @@ class ProjectionController extends Controller
             'projected_at'     => Carbon::now(),
         ]);
 
+        // Broadcast to authorized projector display channel
+        ProjectionUpdated::dispatch(
+            $projection->reference,
+            $projection->translation_code,
+            $projection->passage_text,
+            $projection->status,
+            $projection->projected_at?->toIso8601String() ?? Carbon::now()->toIso8601String(),
+            $projection->verses_json ?? [],
+            null,
+            $request->user()?->name
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Scripture projected and recorded to history successfully.',
@@ -98,14 +111,27 @@ class ProjectionController extends Controller
     /**
      * Clear screen.
      *
+     * @param  Request  $request
      * @return JsonResponse
      */
-    public function clear(): JsonResponse
+    public function clear(Request $request): JsonResponse
     {
         Projection::where('status', 'projected')->update([
             'status'     => 'cleared',
             'cleared_at' => Carbon::now(),
         ]);
+
+        // Broadcast cleared status to authorized projector display channel
+        ProjectionUpdated::dispatch(
+            '',
+            'kjv',
+            '',
+            'cleared',
+            Carbon::now()->toIso8601String(),
+            [],
+            null,
+            $request->user()?->name
+        );
 
         return response()->json([
             'success' => true,
