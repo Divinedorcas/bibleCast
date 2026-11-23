@@ -3,6 +3,7 @@ import { BibleSearchForm } from '../components/bible/BibleSearchForm';
 import { PassageDisplay } from '../components/bible/PassageDisplay';
 import { ErrorAlert } from '../components/common/ErrorAlert';
 import { bibleService } from '../services/bibleService';
+import { projectionService } from '../services/projectionService';
 import {
   BookOpen,
   Layers,
@@ -92,6 +93,21 @@ export function BibleSearch() {
     }
   };
 
+  /**
+   * Live Project directly to sanctuary screen
+   */
+  const handleProjectNow = async (passageToProject) => {
+    if (!passageToProject) return;
+
+    try {
+      await projectionService.projectScripture(passageToProject);
+      setToastMessage(`"${passageToProject.reference}" is now LIVE on sanctuary screens!`);
+      setTimeout(() => setToastMessage(''), 3500);
+    } catch (err) {
+      setError(err);
+    }
+  };
+
   const handleRemoveFromQueue = (id) => {
     bibleService.removeFromQueue(id);
   };
@@ -157,6 +173,7 @@ export function BibleSearch() {
               passage={passage}
               onAddToQueue={handleAddToQueue}
               isQueued={isCurrentPassageQueued}
+              onProjectNow={handleProjectNow}
             />
           ) : (
             /* Empty State Hero */

@@ -9,6 +9,7 @@ import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { BibleSearch } from './pages/BibleSearch';
 import { History } from './pages/History';
+import { Projector } from './pages/Projector';
 
 export default function App() {
   return (
@@ -32,6 +33,9 @@ export default function App() {
               </GuestRoute>
             }
           />
+
+          {/* Standalone Projector Screen (Stage & Sanctuary Display) */}
+          <Route path="/projector" element={<Projector />} />
 
           {/* Authenticated Dashboard Routes */}
           <Route
