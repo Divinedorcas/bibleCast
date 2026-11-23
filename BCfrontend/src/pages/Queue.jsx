@@ -30,11 +30,11 @@ export function Queue() {
             Scripture Projection Queue
           </h1>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Manage your service scripture order. Add passages in advance, reorder sequence on the fly, and project selected scriptures to sanctuary displays with 1 click.
+            Manage your service scripture order. Add passages in advance, reorder sequence on the fly, and project selected scriptures to JE displays with 1 click.
           </p>
         </div>
 
-        {/* Quick Launch Sanctuary Display */}
+        {/* Quick Launch JE Display */}
         <div className="shrink-0 flex flex-col sm:flex-row gap-3">
           <button
             type="button"

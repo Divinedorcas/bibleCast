@@ -4,7 +4,7 @@ import { Maximize2, Minimize2, EyeOff, XCircle, Sparkles } from 'lucide-react';
 /**
  * ProjectorLayout
  *
- * Full-screen presentation container for sanctuary displays.
+ * Full-screen presentation container for JE displays.
  * Includes auto-hiding cursor and subtle floating controls for media operators.
  */
 export function ProjectorLayout({ children, onBlackout, onClear, isBlackout = false }) {
@@ -58,7 +58,7 @@ export function ProjectorLayout({ children, onBlackout, onClear, isBlackout = fa
         showControls ? 'cursor-default' : 'cursor-none'
       }`}
     >
-      {/* Main Sanctuary Display Content */}
+      {/* Main JE Display Content */}
       <div className="w-full h-full flex flex-col justify-center items-center">
         {children}
       </div>

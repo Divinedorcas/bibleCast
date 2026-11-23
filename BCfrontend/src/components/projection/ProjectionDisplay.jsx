@@ -44,7 +44,7 @@ export function ProjectionDisplay({ projection }) {
             Bible<span className="text-amber-400 font-semibold">Cast</span>
           </h1>
           <p className="text-xs font-mono uppercase tracking-widest text-slate-400 mt-2">
-            Sanctuary Stage Display &bull; Standby
+            JE Display &bull; Standby
           </p>
         </div>
       </div>
@@ -115,7 +115,7 @@ export function ProjectionDisplay({ projection }) {
       {/* Bottom: Bible Reference & Translation Citation */}
       <footer className="relative z-10 flex items-end justify-between pt-6 border-t border-slate-800/60">
         <div className="text-[11px] sm:text-xs font-mono text-slate-400 uppercase tracking-widest">
-          BibleCast Sanctuary Projection
+          BibleCast JE Display
         </div>
 
         <div className="text-right">

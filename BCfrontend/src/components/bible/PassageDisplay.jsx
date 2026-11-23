@@ -229,7 +229,7 @@ export function PassageDisplay({
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 Live Stage Screen Simulation
               </span>
-              <span className="uppercase opacity-75">1080p Sanctuary Display</span>
+              <span className="uppercase opacity-75">1080p JE Display</span>
             </div>
 
             {/* Big Centered Scripture for Projector */}
@@ -258,7 +258,7 @@ export function PassageDisplay({
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
           <span>Passage verified &bull; Dynamic API fetch</span>
         </div>
-        <span>Operator review approved &bull; Safe for live sanctuary display</span>
+        <span>Operator review approved &bull; Safe for live JE display</span>
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ import { Dashboard } from './pages/Dashboard';
 import { BibleSearch } from './pages/BibleSearch';
 import { History } from './pages/History';
 import { Queue } from './pages/Queue';
+import { LiveService } from './pages/LiveService';
 import { Projector } from './pages/Projector';
 
 export default function App() {
@@ -35,7 +36,7 @@ export default function App() {
             }
           />
 
-          {/* Standalone Projector Screen (Stage & Sanctuary Display) */}
+          {/* Standalone Projector Screen (Stage & JE Display) */}
           <Route path="/projector" element={<Projector />} />
 
           {/* Authenticated Dashboard Routes */}
@@ -45,6 +46,18 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout title="Dashboard">
                   <Dashboard />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Live Service Console */}
+          <Route
+            path="/live"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout title="Live Service Console">
+                  <LiveService />
                 </DashboardLayout>
               </ProtectedRoute>
             }
