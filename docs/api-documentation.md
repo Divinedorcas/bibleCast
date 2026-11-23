@@ -2,7 +2,7 @@
 
 ## 1. Overview & Conventions
 
-* **Base URL:** `http://localhost:8000/api/v1`
+* **Base URL:** `http://localhost:8080/api`
 * **Content-Type:** `application/json`
 * **Accept:** `application/json`
 * **Authentication:** Bearer Token via Laravel Sanctum (`Authorization: Bearer <token>`)
