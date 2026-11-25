@@ -7,7 +7,7 @@ A living progress log and task journal tracking the development, architecture mi
 ## 📌 Project Overview & Current Status
 
 - **Project Name:** BibleCast
-- **Current Phase:** Phase 2 (Foundation & Scaffolding Complete) &rarr; Entering Phase 3 (Backend & Realtime Development)
+- **Current Phase:** Phase 6 (Live Console, Queue & Real Dashboard Complete) &rarr; Entering Phase 7 (Testing, Audio Line-In Tuning & Deployment)
 - **Primary Workspaces:**
   - Frontend: [`c:\Users\Dorcas\Desktop\bibleCast\BCfrontend`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend) (React 18 + Vite)
   - Backend: [`c:\Users\Dorcas\Desktop\bibleCast\BCbackend`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend) (Laravel 12 Framework)
@@ -34,11 +34,11 @@ bibleCast/
 | :--- | :--- | :---: | :---: |
 | **Phase 1** | Requirements analysis, database architecture, API specification & docs | **Completed** | 100% |
 | **Phase 2** | Project scaffolding, package management & dependency installations | **Completed** | 100% |
-| **Phase 3** | Backend database migrations, models, REST API & Reverb WebSockets | **Next Up** | 0% |
-| **Phase 4** | Frontend operator console layout, theme & state management | **Queued** | 0% |
-| **Phase 5** | Live audio capture, Web Speech API & scripture citation extraction | **Queued** | 0% |
-| **Phase 6** | Projector stage route (`/projector`), fullscreen dual-display & broadcast sync | **Queued** | 0% |
-| **Phase 7** | Sanctuary line-in audio testing, latency optimization & deployment | **Queued** | 0% |
+| **Phase 3** | Backend database migrations, models, REST API & Reverb WebSockets | **Completed** | 100% |
+| **Phase 4** | Frontend operator console layout, theme & state management | **Completed** | 100% |
+| **Phase 5** | Live audio capture, Web Speech API & scripture citation extraction | **Completed** | 100% |
+| **Phase 6** | Projector stage route (`/projector`), fullscreen dual-display & broadcast sync | **Completed** | 100% |
+| **Phase 7** | Sanctuary line-in audio testing, latency optimization & deployment | **In Progress** | 70% |
 
 ---
 
@@ -138,6 +138,73 @@ bibleCast/
 - [x] Register container binding in `AppServiceProvider`.
 - [x] Implement frontend `bibleService.js` and connect dashboard quick search widget.
 - [x] Create automated feature tests in `BibleTest.php` with 100% pass rate (8 passed, 20 assertions).
+
+---
+
+### 2026-11-22 (Day 5) &mdash; Saved Passages, Live Projection History & Dedicated Stage View
+
+#### Objectives:
+- [x] Create `SavedPassage` and `Projection` models and database migrations.
+- [x] Implement `SavedPassageController` (`/saved-passages`) and `ProjectionController` (`/projections`, `/projections/history`, `/projections/current`, `/projections/clear`).
+- [x] Build standalone `/projector` stage display view with `ProjectorLayout.jsx` and `ProjectionDisplay.jsx`.
+- [x] Build `History.jsx` for bookmarking favourites and viewing historical projections.
+- [x] Add multi-window sub-millisecond synchronization via Web `BroadcastChannel` and `localStorage` storage events.
+
+---
+
+### 2026-11-23 (Day 6) &mdash; Broadcasting Architecture & ProjectionUpdated Event
+
+#### Objectives:
+- [x] Create `App\Events\ProjectionUpdated` event implementing `ShouldBroadcast`.
+- [x] Configure event payload carrying `reference`, `translation`, `passage_text`, `status`, `timestamp`, `verses`, and `operator_name`.
+- [x] Authorize display channels in `routes/channels.php` (`projector.display` and `projector.display.{tokenHash}`).
+- [x] Register broadcasting channel routing in `bootstrap/app.php`.
+- [x] Connect `ProjectionController::store()` and `clear()` to dispatch `ProjectionUpdated`.
+- [x] Write feature tests in `PassageAndProjectionTest.php` verifying event dispatch and payloads.
+
+---
+
+### 2026-11-23 (Day 7) &mdash; Projection Lineup Queue & Interface
+
+#### Objectives:
+- [x] Create `ProjectionQueue` model and migration with sequence ordering (`sort_order`).
+- [x] Implement `ProjectionQueueController` with add, remove, reorder, project selected, and clear queue.
+- [x] Create `queueService.js` supporting optimistic UI updates and real-time tab synchronization.
+- [x] Build `QueueManager.jsx` with lookup modal, arrow reordering, 1-click live projection, and clear queue safeguards.
+- [x] Build dedicated `/queue` page (`Queue.jsx`) and connect sidebar navigation.
+- [x] Write backend tests in `ProjectionQueueTest.php` (6 tests passing).
+
+---
+
+### 2026-11-23 (Day 8) &mdash; Live Sermon Audio Ingestion, Web Speech API & Live Console
+
+#### Objectives:
+- [x] Implement `useAudioInput.js` hook utilizing Web Audio API for real-time RMS volume metering and USB mixer input selection.
+- [x] Implement `useSpeechRecognition.js` hook for continuous native browser speech-to-text with status and permission guards.
+- [x] Build `AudioLevelMeter.jsx` with multi-segment LED color gradient, dBFS scale, and clipping indicators.
+- [x] Build `AudioSourceSelector.jsx` identifying USB sound interfaces, mixers, and microphones.
+- [x] Build `AudioControls.jsx` master listening toolbar with auto-detection toggle.
+- [x] Build `LiveService.jsx` console featuring live preacher speech stream, human-in-the-loop scripture approval queue, and stage screen mirror.
+- [x] Rename Sanctuary Display to JE Display across components.
+
+---
+
+### 2026-11-25 (Day 9) &mdash; Real Dashboard Records, Church Service Switcher & Active Operators
+
+#### Objectives:
+- [x] Create `Service` model and database migration pre-seeded with 4 standard church services:
+  - **1st Service**
+  - **2nd Service**
+  - **Tuesday Service**
+  - **Thursday Service**
+- [x] Implement `DashboardController.php` with `/api/v1/dashboard/stats`, `/api/v1/services`, and `/api/v1/services/switch`.
+- [x] Connect `Dashboard.jsx` to real database records:
+  - **Total Projections Done:** Real count from `projections` table.
+  - **Current Service:** Real-time switcher between 1st, 2nd, Tuesday, and Thursday services with active status.
+  - **Recent Projections:** Real list of recent projections with scripture citation, translation, and operator attribution.
+  - **Active Operators:** Real registered and signed-in operators from `users` table.
+- [x] Create frontend `dashboardService.js`.
+- [x] Add backend tests in `DashboardTest.php` (all 34 backend feature and unit tests passing with 133 assertions).
 
 ---
 
