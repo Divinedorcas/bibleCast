@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { ErrorAlert } from '../components/common/ErrorAlert';
 import { bibleService } from '../services/bibleService';
+import { dashboardService } from '../services/dashboardService';
 import {
   Tv,
   Radio,
@@ -22,6 +23,8 @@ import {
   ArrowRight,
   Sparkles,
   Activity,
+  Calendar,
+  ChevronDown,
 } from 'lucide-react';
 
 // ─── Quick Bible Search Widget ────────────────────────────────────────────────
@@ -38,7 +41,8 @@ function QuickBibleSearch() {
 
   useEffect(() => {
     let isMounted = true;
-    bibleService.getTranslations()
+    bibleService
+      .getTranslations()
       .then((res) => {
         if (isMounted && res?.data && res.data.length > 0) {
           setAvailableTranslations(res.data);
@@ -46,10 +50,10 @@ function QuickBibleSearch() {
           if (def) setTranslation(def.code);
         }
       })
-      .catch(() => {
-        // Fallback to defaults already in state
-      });
-    return () => { isMounted = false; };
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleSearch = async (e) => {
@@ -135,87 +139,50 @@ function QuickBibleSearch() {
 
 // ─── Live Listening Status Widget ────────────────────────────────────────────
 function LiveListeningStatus() {
-  const [isListening, setIsListening] = useState(false);
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {isListening ? (
-            <>
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-semibold text-emerald-400">Listening Active</span>
-            </>
-          ) : (
-            <>
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-600" />
-              <span className="text-xs font-semibold text-slate-400">Microphone Off</span>
-            </>
-          )}
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="text-xs font-semibold text-emerald-400">Speech Engine Ready</span>
         </div>
-        <button
-          onClick={() => setIsListening((v) => !v)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            isListening
-              ? 'bg-rose-600/20 border border-rose-500/40 text-rose-300 hover:bg-rose-600/30'
-              : 'bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30'
-          }`}
+        <Link
+          to="/live"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 transition-all"
         >
-          {isListening ? (
-            <>
-              <MicOff className="w-3.5 h-3.5" />
-              Stop Capture
-            </>
-          ) : (
-            <>
-              <Mic className="w-3.5 h-3.5" />
-              Start Capture
-            </>
-          )}
-        </button>
+          <Radio className="w-3.5 h-3.5" />
+          Open Live Console
+        </Link>
       </div>
 
-      {/* VU Meter placeholder */}
-      <div className="bg-slate-950 rounded-lg p-3 border border-slate-800">
-        <div className="flex gap-1 mb-1.5">
+      {/* Visual audio monitor bar */}
+      <div className="bg-slate-950 rounded-lg p-3 border border-slate-800 space-y-1.5">
+        <div className="flex gap-1">
           {Array.from({ length: 16 }, (_, i) => (
             <div
               key={i}
-              className={`flex-1 h-2.5 rounded-sm transition-colors duration-100 ${
-                isListening
-                  ? i < 10
-                    ? 'bg-emerald-500 opacity-70 animate-pulse'
-                    : i < 13
-                    ? 'bg-amber-400 opacity-50'
-                    : 'bg-rose-500 opacity-30'
-                  : 'bg-slate-800'
+              className={`flex-1 h-2 rounded-sm ${
+                i < 10 ? 'bg-emerald-500/40' : i < 14 ? 'bg-amber-400/40' : 'bg-rose-500/30'
               }`}
             />
           ))}
         </div>
         <p className="text-[11px] text-slate-500 font-mono">
-          {isListening ? 'Monitoring for Bible citations...' : 'No audio input'}
+          Preacher voice line-in &bull; Web Speech API ready
         </p>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-slate-400">
-        <span>Speech Engine</span>
-        <span className="font-mono text-slate-300">Web Speech API</span>
-      </div>
-      <div className="flex items-center justify-between text-xs text-slate-400">
-        <span>Citation Detection</span>
-        <span className={isListening ? 'text-emerald-400 font-semibold' : 'text-slate-500'}>
-          {isListening ? 'Active — human review gated' : 'Paused'}
-        </span>
-      </div>
-
-      <div className="mt-1">
-        <Link
-          to="/live"
-          className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors"
-        >
-          Go to Live Console <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+      <div className="space-y-1.5 text-xs text-slate-400">
+        <div className="flex items-center justify-between">
+          <span>Continuous Engine</span>
+          <span className="font-mono text-slate-200">Browser Web Speech API</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span>Scripture Auto-Detection</span>
+          <span className="text-emerald-400 font-semibold flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3" /> Enabled (Human-in-the-loop gated)
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -225,16 +192,45 @@ function LiveListeningStatus() {
 export function Dashboard() {
   const { user } = useAuth();
 
+  // Real data state from backend
+  const [statsData, setStatsData] = useState({
+    total_projections: 0,
+    recent_projections_count: 0,
+    recent_projections: [],
+    current_service: {
+      name: '1st Service',
+      service_key: '1st_service',
+      status: 'in_progress',
+      start_time: '08:00:00',
+    },
+    services: [
+      { id: 1, name: '1st Service', service_key: '1st_service', status: 'in_progress' },
+      { id: 2, name: '2nd Service', service_key: '2nd_service', status: 'scheduled' },
+      { id: 3, name: 'Tuesday Service', service_key: 'tuesday_service', status: 'scheduled' },
+      { id: 4, name: 'Thursday Service', service_key: 'thursday_service', status: 'scheduled' },
+    ],
+    active_operators: [],
+    active_operators_count: 0,
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
   const getRoleTitle = (role) => {
     switch (role) {
-      case 'admin':     return 'System Administrator';
-      case 'presenter': return 'Pastor / Service Presenter';
-      default:          return 'Media Booth Operator';
+      case 'admin':
+        return 'System Administrator';
+      case 'presenter':
+        return 'Pastor / Service Presenter';
+      default:
+        return 'Media Booth Operator';
     }
   };
 
   const openProjectorWindow = () => {
-    const w = 1280, h = 720;
+    const w = 1280,
+      h = 720;
     const l = window.screen.width ? (window.screen.width - w) / 2 : 100;
     const t = window.screen.height ? (window.screen.height - h) / 2 : 100;
     window.open(
@@ -244,174 +240,293 @@ export function Dashboard() {
     );
   };
 
-  // ── Mock data (replace with API calls once backend endpoints are ready) ──
-  const stats = [
-    {
-      label: 'Total Projections',
-      value: '247',
-      sub: 'All-time service sessions',
-      icon: <TrendingUp className="w-5 h-5" />,
-      color: 'text-amber-400',
-      bg: 'bg-amber-500/10 border-amber-500/20',
-    },
-    {
-      label: 'Current Service',
-      value: 'Sunday AM',
-      sub: 'Started 10:04 AM',
-      icon: <BookOpen className="w-5 h-5" />,
-      color: 'text-emerald-400',
-      bg: 'bg-emerald-500/10 border-emerald-500/20',
-    },
-    {
-      label: 'Recent Projections',
-      value: '12',
-      sub: 'In this session',
-      icon: <BookMarked className="w-5 h-5" />,
-      color: 'text-sky-400',
-      bg: 'bg-sky-500/10 border-sky-500/20',
-    },
-    {
-      label: 'Active Operators',
-      value: '3',
-      sub: 'Booth & stage crew online',
-      icon: <Users className="w-5 h-5" />,
-      color: 'text-purple-400',
-      bg: 'bg-purple-500/10 border-purple-500/20',
-    },
-  ];
+  // Fetch real statistics from backend API
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await dashboardService.getStats();
+      if (res?.data) {
+        setStatsData(res.data);
+      }
+    } catch (err) {
+      console.warn('Failed to load real dashboard stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const recentProjections = [
-    { ref: 'John 3:16',     translation: 'KJV', time: '10:42 AM', operator: 'Dorcas O.' },
-    { ref: 'Romans 8:28',   translation: 'KJV', time: '10:38 AM', operator: 'Dorcas O.' },
-    { ref: 'Psalm 23:1',    translation: 'WEB', time: '10:31 AM', operator: 'Dorcas O.' },
-    { ref: 'Isaiah 40:31',  translation: 'KJV', time: '10:25 AM', operator: 'Mike A.'  },
-    { ref: 'Phil 4:13',     translation: 'KJV', time: '10:17 AM', operator: 'Mike A.'  },
-  ];
+  useEffect(() => {
+    loadStats();
 
-  const activeOperators = [
-    { name: 'Dorcas O.', role: 'operator', status: 'active',  since: '10:00 AM' },
-    { name: 'Mike A.',   role: 'operator', status: 'active',  since: '10:00 AM' },
-    { name: 'Pastor Ben', role: 'presenter', status: 'active', since: '09:55 AM' },
-  ];
+    // Re-fetch stats when new projections occur
+    const handleProjectionUpdated = () => {
+      loadStats();
+    };
+
+    window.addEventListener('biblecast:projection_updated', handleProjectionUpdated);
+    window.addEventListener('biblecast:queue_updated', handleProjectionUpdated);
+
+    return () => {
+      window.removeEventListener('biblecast:projection_updated', handleProjectionUpdated);
+      window.removeEventListener('biblecast:queue_updated', handleProjectionUpdated);
+    };
+  }, [loadStats]);
+
+  // Handle service switching (1st service, 2nd service, tuesday service, thursday service)
+  const handleServiceChange = async (serviceKey) => {
+    if (!serviceKey || serviceKey === statsData.current_service?.service_key) return;
+
+    setSwitching(true);
+    try {
+      const res = await dashboardService.switchService(serviceKey);
+      if (res?.data) {
+        setStatsData((prev) => ({
+          ...prev,
+          current_service: res.data.current_service,
+          services: res.data.services || prev.services,
+        }));
+        setToastMessage(`Switched active service to "${res.data.current_service?.name}"!`);
+        setTimeout(() => setToastMessage(''), 3500);
+      }
+    } catch (err) {
+      console.error('Failed to switch service:', err);
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  const currentServiceName = statsData.current_service?.name || '1st Service';
 
   return (
     <div className="space-y-6">
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 animate-bounce text-sm">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* ── Welcome Hero Banner ── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-slate-800 p-6 lg:p-8 shadow-xl">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold mb-3">
               <Sparkles className="w-3.5 h-3.5" />
-              Sanctuary Projection Console
+              JE Display Projection Console
             </div>
             <h1 className="text-2xl lg:text-3xl font-bold text-slate-100 tracking-tight">
               Welcome, <span className="text-amber-400">{user?.name?.split(' ')[0] || 'Operator'}</span>
             </h1>
             <p className="text-sm text-slate-400 mt-1.5">
-              Signed in as <strong className="text-slate-200">{getRoleTitle(user?.role)}</strong> &bull;
-              All systems ready for service.
+              Signed in as <strong className="text-slate-200">{getRoleTitle(user?.role)}</strong> &bull;{' '}
+              All systems live for <span className="text-amber-400 font-semibold">{currentServiceName}</span>.
             </p>
           </div>
           <Button variant="primary" size="md" icon={<Tv className="w-4 h-4" />} onClick={openProjectorWindow}>
-            Launch Projector Screen
+            Launch JE Display Screen
           </Button>
         </div>
         <div className="absolute right-0 top-0 -mt-16 -mr-16 w-72 h-72 bg-amber-500/8 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      {/* ── Section 1: Stats Row ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col gap-3"
-          >
-            <div className={`w-9 h-9 rounded-lg border flex items-center justify-center ${s.bg} ${s.color}`}>
-              {s.icon}
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-100 leading-none">{s.value}</p>
-              <p className="text-xs font-semibold text-slate-300 mt-1">{s.label}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">{s.sub}</p>
+      {/* ── Section 1: Real Stats Row ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Projections done (Real) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between gap-3 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400">Total Projections Done</span>
+            <div className="w-9 h-9 rounded-lg border bg-amber-500/10 border-amber-500/20 text-amber-400 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5" />
             </div>
           </div>
-        ))}
+          <div>
+            <p className="text-2xl sm:text-3xl font-bold text-slate-100 leading-none">
+              {loading ? '--' : statsData.total_projections}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-1.5">All-time database projection records</p>
+          </div>
+        </div>
+
+        {/* Card 2: Current Service with Real Switcher (1st, 2nd, Tuesday, Thursday) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between gap-3 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400">Current Service</span>
+            <div className="w-9 h-9 rounded-lg border bg-emerald-500/10 border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+              <BookOpen className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <div className="relative">
+              <select
+                value={statsData.current_service?.service_key || '1st_service'}
+                onChange={(e) => handleServiceChange(e.target.value)}
+                disabled={switching}
+                className="w-full bg-slate-950 border border-slate-700 hover:border-amber-500/60 text-slate-100 text-sm font-bold rounded-lg px-2.5 py-1.5 pr-8 appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500"
+              >
+                <option value="1st_service">1st Service</option>
+                <option value="2nd_service">2nd Service</option>
+                <option value="tuesday_service">Tuesday Service</option>
+                <option value="thursday_service">Thursday Service</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
+            </div>
+            <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Active in-progress service
+            </p>
+          </div>
+        </div>
+
+        {/* Card 3: Recent Projections Count (Real) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between gap-3 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400">Recent Projections</span>
+            <div className="w-9 h-9 rounded-lg border bg-sky-500/10 border-sky-500/20 text-sky-400 flex items-center justify-center">
+              <BookMarked className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <p className="text-2xl sm:text-3xl font-bold text-slate-100 leading-none">
+              {loading ? '--' : statsData.recent_projections?.length || statsData.recent_projections_count}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-1.5">Recorded in recent session</p>
+          </div>
+        </div>
+
+        {/* Card 4: Active Operators (Real signed in users) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between gap-3 shadow-md">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400">Active Operators</span>
+            <div className="w-9 h-9 rounded-lg border bg-purple-500/10 border-purple-500/20 text-purple-400 flex items-center justify-center">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+          <div>
+            <p className="text-2xl sm:text-3xl font-bold text-slate-100 leading-none">
+              {loading ? '--' : statsData.active_operators_count}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-1.5">Signed in media team crew</p>
+          </div>
+        </div>
       </div>
 
-      {/* ── Sections 2 & 3 — Two column: Recent Projections + Active Operators ── */}
+      {/* ── Sections 2 & 3 — Two column: Real Recent Projections + Real Active Operators ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Section 2: Recent Projections */}
+        {/* Section 2: Real Recent Projections */}
         <Card
           icon={<BookMarked className="w-4 h-4" />}
           title="Recent Projections"
           action={
-            <Link to="/history" className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors">
-              View all <ArrowRight className="w-3 h-3" />
+            <Link
+              to="/history"
+              className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors font-semibold"
+            >
+              View Full History <ArrowRight className="w-3 h-3" />
             </Link>
           }
           noPadding
         >
-          <div className="divide-y divide-slate-800/60">
-            {recentProjections.map((p, i) => (
-              <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-slate-800/20 transition-colors">
-                <div>
-                  <p className="text-sm font-semibold text-amber-300 font-serif">{p.ref}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {p.operator} &bull; {p.translation}
-                  </p>
+          {loading ? (
+            <div className="p-8 text-center text-slate-500">
+              <Loader2 className="w-5 h-5 animate-spin mx-auto text-amber-400 mb-2" />
+              <p className="text-xs">Loading projections...</p>
+            </div>
+          ) : statsData.recent_projections && statsData.recent_projections.length > 0 ? (
+            <div className="divide-y divide-slate-800/60 max-h-[350px] overflow-y-auto">
+              {statsData.recent_projections.map((p, i) => (
+                <div
+                  key={p.id || i}
+                  className="flex items-center justify-between px-5 py-3 hover:bg-slate-800/20 transition-colors"
+                >
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-amber-300 font-serif">{p.ref}</p>
+                      <span className="text-[9px] uppercase font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                        {p.translation}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Operator: <span className="text-slate-200">{p.operator}</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
+                    <Clock className="w-3 h-3 text-slate-500" />
+                    {p.time}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-mono">
-                  <Clock className="w-3 h-3" />
-                  {p.time}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-slate-500 space-y-2">
+              <BookMarked className="w-8 h-8 mx-auto text-slate-700" />
+              <p className="text-xs">No recent scripture projections yet.</p>
+              <Link
+                to="/search"
+                className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 font-semibold"
+              >
+                Search &amp; Project Scripture <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          )}
         </Card>
 
-        {/* Section 3: Active Media Operators */}
+        {/* Section 3: Real Active Media Operators (signed in users) */}
         <Card
           icon={<Users className="w-4 h-4" />}
-          title="Active Media Operators"
+          title="Active Operators (Signed in Users)"
           action={
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
-              {activeOperators.length} online
+              {statsData.active_operators_count} online
             </span>
           }
           noPadding
         >
-          <div className="divide-y divide-slate-800/60">
-            {activeOperators.map((op, i) => (
-              <div key={i} className="flex items-center justify-between px-5 py-3.5">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">
-                    {op.name.charAt(0)}
+          {loading ? (
+            <div className="p-8 text-center text-slate-500">
+              <Loader2 className="w-5 h-5 animate-spin mx-auto text-amber-400 mb-2" />
+              <p className="text-xs">Loading operators...</p>
+            </div>
+          ) : statsData.active_operators && statsData.active_operators.length > 0 ? (
+            <div className="divide-y divide-slate-800/60 max-h-[350px] overflow-y-auto">
+              {statsData.active_operators.map((op, i) => (
+                <div key={op.id || i} className="flex items-center justify-between px-5 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-300 shadow-sm">
+                      {op.name?.charAt(0) || 'U'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-200">{op.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span
+                          className={`text-[9px] font-mono uppercase px-1.5 py-0.2 rounded border font-bold ${
+                            op.role === 'admin'
+                              ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                              : op.role === 'presenter'
+                              ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          }`}
+                        >
+                          {op.role}
+                        </span>
+                        <span className="text-[10px] text-slate-500">{op.email}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-200">{op.name}</p>
-                    <span
-                      className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border ${
-                        op.role === 'admin'
-                          ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
-                          : op.role === 'presenter'
-                          ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                      }`}
-                    >
-                      {op.role}
-                    </span>
+                  <div className="text-right">
+                    <div className="flex items-center gap-1 justify-end">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-[11px] text-emerald-400 font-medium">Online</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-0.5 font-mono">signed in</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="flex items-center gap-1 justify-end">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[11px] text-emerald-400 font-medium">Active</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5 font-mono">since {op.since}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-slate-500">
+              <p className="text-xs">No active operators found.</p>
+            </div>
+          )}
         </Card>
       </div>
 
@@ -427,7 +542,7 @@ export function Dashboard() {
           icon={<Radio className="w-4 h-4" />}
           title="Live Listening Status"
           action={
-            <span className="text-[11px] text-slate-400 font-mono">Web Speech API</span>
+            <span className="text-[11px] text-slate-400 font-mono">Continuous Stream</span>
           }
         >
           <LiveListeningStatus />
