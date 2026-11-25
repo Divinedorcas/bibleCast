@@ -140,4 +140,30 @@ class BibleController extends Controller
             'data'    => $result,
         ]);
     }
+
+    /**
+     * Detect references and analyze scripture content from Bible passage text.
+     *
+     * @param  Request  $request
+     * @return JsonResponse
+     */
+    public function detectFromText(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'text'        => ['required', 'string', 'max:5000'],
+            'translation' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $result = $this->passageResolver->detectFromPassageText(
+            $validated['text'],
+            $validated['translation'] ?? null
+        );
+
+        return response()->json([
+            'success'  => true,
+            'detected' => $result['detected'],
+            'message'  => $result['detected'] ? 'Bible passage detected successfully.' : 'No matching passage detected.',
+            'data'     => $result,
+        ]);
+    }
 }

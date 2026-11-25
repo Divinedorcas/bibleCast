@@ -18,3 +18,17 @@ Broadcast::channel('projector.display.{tokenHash}', function ($user, $tokenHash)
 Broadcast::channel('projector.display', function ($user) {
     return $user !== null;
 });
+
+/**
+ * Dedicated operator detection review channel.
+ */
+Broadcast::channel('operator.detections', function ($user) {
+    return $user !== null;
+});
+
+/**
+ * Active service channel for operator collaboration.
+ */
+Broadcast::channel('service.{serviceId}', function ($user, $serviceId) {
+    return $user !== null;
+});

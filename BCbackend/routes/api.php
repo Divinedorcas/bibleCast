@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ProjectionController;
 use App\Http\Controllers\Api\ProjectionQueueController;
 use App\Http\Controllers\Api\SavedPassageController;
+use App\Http\Controllers\Api\SpeechController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -28,6 +29,7 @@ $registerRoutes = function () {
         Route::get('/passage', [BibleController::class, 'passage']);
         Route::get('/search', [BibleController::class, 'search']);
         Route::post('/parse-reference', [BibleController::class, 'parseReference']);
+        Route::post('/detect-from-text', [BibleController::class, 'detectFromText']);
     });
 
     // Saved Passages / Favourites Endpoints
@@ -40,6 +42,16 @@ $registerRoutes = function () {
     Route::get('/projections/current', [ProjectionController::class, 'current']);
     Route::post('/projections', [ProjectionController::class, 'store']);
     Route::post('/projections/clear', [ProjectionController::class, 'clear']);
+
+    // Speech Recognition & Preacher Detection Endpoints
+    Route::prefix('speech')->group(function () {
+        Route::post('/process-transcript', [SpeechController::class, 'processTranscription']);
+        Route::post('/detect-passage', [SpeechController::class, 'detectPassageText']);
+        Route::get('/detections', [SpeechController::class, 'index']);
+        Route::post('/detections', [SpeechController::class, 'store']);
+        Route::get('/detections/{id}', [SpeechController::class, 'show']);
+        Route::post('/detections/{id}/review', [SpeechController::class, 'review']);
+    });
 
     // Projection Queue Endpoints
     Route::get('/projection-queues', [ProjectionQueueController::class, 'index']);

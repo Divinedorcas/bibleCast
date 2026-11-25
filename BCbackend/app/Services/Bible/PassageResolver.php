@@ -2,16 +2,33 @@
 
 namespace App\Services\Bible;
 
+use App\Events\ScriptureDetected;
+use App\Models\DetectedReference;
+use App\Models\Service;
 use App\Models\Translation;
+use App\Models\User;
+use App\Services\Speech\ReferenceParser;
 use Illuminate\Support\Str;
 
 class PassageResolver
 {
     protected BibleProviderInterface $provider;
+    protected ReferenceParser $referenceParser;
 
-    public function __construct(BibleProviderInterface $provider)
-    {
+    public function __construct(
+        BibleProviderInterface $provider,
+        ?ReferenceParser $referenceParser = null
+    ) {
         $this->provider = $provider;
+        $this->referenceParser = $referenceParser ?? app(ReferenceParser::class);
+    }
+
+    /**
+     * Get the ReferenceParser instance.
+     */
+    public function getReferenceParser(): ReferenceParser
+    {
+        return $this->referenceParser;
     }
 
     /**
@@ -56,73 +73,217 @@ class PassageResolver
 
     /**
      * Parse speech transcript and extract Bible reference if detected.
+     * Backward-compatible delegation to ReferenceParser.
      *
      * @param  string  $transcript
      * @return array
      */
     public function parseReferenceFromTranscript(string $transcript): array
     {
-        $detected = false;
-        $matchedReference = null;
-        $book = null;
-        $chapter = null;
-        $verseStart = null;
-        $verseEnd = null;
-        $confidence = 0.0;
+        return $this->referenceParser->parse($transcript);
+    }
 
-        $booksList = [
-            'Genesis', 'Exodus', 'Leviticus', 'Numbers', 'Deuteronomy',
-            'Joshua', 'Judges', 'Ruth', '1 Samuel', '2 Samuel',
-            '1 Kings', '2 Kings', '1 Chronicles', '2 Chronicles', 'Ezra',
-            'Nehemiah', 'Esther', 'Job', 'Psalms', 'Psalm', 'Proverbs',
-            'Ecclesiastes', 'Song of Solomon', 'Isaiah', 'Jeremiah', 'Lamentations',
-            'Ezekiel', 'Daniel', 'Hosea', 'Joel', 'Amos',
-            'Obadiah', 'Jonah', 'Micah', 'Nahum', 'Habakkuk',
-            'Zephaniah', 'Haggai', 'Zechariah', 'Malachi', 'Matthew',
-            'Mark', 'Luke', 'John', 'Acts', 'Romans',
-            '1 Corinthians', '2 Corinthians', 'Galatians', 'Ephesians', 'Philippians',
-            'Colossians', '1 Thessalonians', '2 Thessalonians', '1 Timothy', '2 Timothy',
-            'Titus', 'Philemon', 'Hebrews', 'James', '1 Peter',
-            '2 Peter', '1 John', '2 John', '3 John', 'Jude', 'Revelation'
+    /**
+     * Detect references and analyze scripture content from Bible passage text.
+     *
+     * @param  string  $text
+     * @param  string|null  $translationCode
+     * @return array
+     */
+    public function detectFromPassageText(string $text, ?string $translationCode = null): array
+    {
+        $detection = $this->referenceParser->detectFromPassageText(
+            $text,
+            $translationCode,
+            $this->provider
+        );
+
+        $parsedStructure = $this->referenceParser->parsePassageText($text, $detection['reference'] ?? null);
+        $allReferences = $this->referenceParser->extractAll($text);
+
+        return [
+            'success'            => true,
+            'detected'           => $detection['detected'],
+            'match_type'         => $detection['match_type'] ?? null,
+            'primary_reference'  => $detection['reference'] ?? ($allReferences[0]['reference'] ?? null),
+            'confidence'         => $detection['confidence'] ?? (count($allReferences) ? 0.95 : 0.0),
+            'clean_text'         => $parsedStructure['clean_text'],
+            'verses'             => $parsedStructure['verses'],
+            'all_references'     => $allReferences,
+            'cross_references'   => $this->referenceParser->detectCrossReferences($text),
         ];
+    }
 
-        $cleaned = trim($transcript);
-        // Replace words like 'first', 'second', 'third' before book names
-        $cleaned = preg_replace('/\bfirst\b/i', '1', $cleaned);
-        $cleaned = preg_replace('/\bsecond\b/i', '2', $cleaned);
-        $cleaned = preg_replace('/\bthird\b/i', '3', $cleaned);
+    /**
+     * The End-to-End Speech Recognition & Detection Workflow:
+     * 1. Receive transcription.
+     * 2. Detect a potential Bible reference or scripture quotation.
+     * 3. Validate the reference.
+     * 4. Retrieve the passage.
+     * 5. Create a pending detection.
+     * 6. Send it to the operator for review.
+     *
+     * @param  string  $transcript        Preacher or speaker transcript snippet.
+     * @param  int|null  $serviceId       Optional church service ID.
+     * @param  string|null  $translationCode Optional target Bible translation.
+     * @param  User|null  $operator       Optional operator triggering detection.
+     * @return array
+     */
+    public function processTranscription(
+        string $transcript,
+        ?int $serviceId = null,
+        ?string $translationCode = null,
+        ?User $operator = null
+    ): array {
+        // -------------------------------------------------------------
+        // Step 1: Receive transcription
+        // -------------------------------------------------------------
+        $cleanTranscript = trim($transcript);
+        if (empty($cleanTranscript)) {
+            return [
+                'success'  => false,
+                'step'     => 1,
+                'detected' => false,
+                'message'  => 'Empty transcription received.',
+                'data'     => null,
+            ];
+        }
 
-        // Pattern 1: Book [Chapter:Verse] or Book Chapter Verse or Book Chapter Verse-Verse
-        // e.g. "John 3:16", "Romans 8:28", "Romans chapter 8 verse 28", "John 3 verse 16"
-        foreach ($booksList as $b) {
-            $escapedBook = preg_quote($b, '/');
-            // Regex matching book name followed by chapter/verse indicators
-            $pattern = '/\b(' . $escapedBook . ')\s*(?:chapter\s*)?(\d+)[:\s]*(?:verse\s*)?(\d+)(?:\s*(?:to|-)\s*(\d+))?/i';
+        // -------------------------------------------------------------
+        // Step 2: Detect a potential Bible reference or quoted passage text
+        // -------------------------------------------------------------
+        $detection = $this->referenceParser->parse($cleanTranscript);
+        $cachedPassageText = null;
+        $cachedVerses = null;
 
-            if (preg_match($pattern, $cleaned, $matches)) {
-                $detected = true;
-                $book = $b === 'Psalms' ? 'Psalm' : $b;
-                $chapter = (int) $matches[2];
-                $verseStart = (int) $matches[3];
-                $verseEnd = !empty($matches[4]) ? (int) $matches[4] : null;
+        // If no explicit citation found, attempt passage text detection
+        if (!$detection['detected'] || empty($detection['reference'])) {
+            $passageMatch = $this->referenceParser->detectFromPassageText(
+                $cleanTranscript,
+                $translationCode,
+                $this->provider
+            );
 
-                $matchedReference = $verseEnd
-                    ? "{$book} {$chapter}:{$verseStart}-{$verseEnd}"
-                    : "{$book} {$chapter}:{$verseStart}";
-
-                $confidence = 0.95;
-                break;
+            if ($passageMatch['detected'] && !empty($passageMatch['reference'])) {
+                $parsed = $this->referenceParser->parse($passageMatch['reference']);
+                if ($parsed['detected']) {
+                    $detection = $parsed;
+                    $cachedPassageText = $passageMatch['passage_text'] ?? null;
+                    $cachedVerses = $passageMatch['verses'] ?? null;
+                }
             }
         }
 
+        if (!$detection['detected'] || empty($detection['reference'])) {
+            return [
+                'success'  => true,
+                'step'     => 2,
+                'detected' => false,
+                'message'  => 'No scripture reference detected in transcription.',
+                'data'     => null,
+            ];
+        }
+
+        // -------------------------------------------------------------
+        // Step 3: Validate the reference
+        // -------------------------------------------------------------
+        $validation = $this->referenceParser->validate(
+            $detection['book'],
+            $detection['chapter'],
+            $detection['verse_start'],
+            $detection['verse_end']
+        );
+
+        if (!$validation['is_valid']) {
+            return [
+                'success'   => false,
+                'step'      => 3,
+                'detected'  => true,
+                'valid'     => false,
+                'message'   => $validation['reason'] ?? 'Invalid scripture reference bounds.',
+                'reference' => $detection['reference'],
+                'data'      => null,
+            ];
+        }
+
+        $canonicalReference = $validation['canonical_reference'] ?? $detection['reference'];
+
+        // -------------------------------------------------------------
+        // Step 4: Retrieve the passage
+        // -------------------------------------------------------------
+        if ($cachedPassageText) {
+            $passageData = [
+                'reference'        => $canonicalReference,
+                'translation'      => $translationCode ?: 'kjv',
+                'translation_name' => strtoupper($translationCode ?: 'kjv'),
+                'text'             => $cachedPassageText,
+                'verses'           => $cachedVerses ?? [],
+            ];
+        } else {
+            try {
+                $passageData = $this->resolve($canonicalReference, $translationCode);
+            } catch (\Throwable $e) {
+                // Graceful fallback if external provider is unreachable or passage fails lookup
+                $passageData = [
+                    'reference'        => $canonicalReference,
+                    'translation'      => $translationCode ?: 'kjv',
+                    'translation_name' => strtoupper($translationCode ?: 'kjv'),
+                    'text'             => '',
+                    'verses'           => [],
+                    'warning'          => 'Passage retrieval encountered an error: ' . $e->getMessage(),
+                ];
+            }
+        }
+
+        // -------------------------------------------------------------
+        // Step 5: Create a pending detection
+        // -------------------------------------------------------------
+        // Associate with active service if not explicitly passed
+        if (!$serviceId) {
+            $activeService = Service::where('status', 'in_progress')->first()
+                ?? Service::where('status', 'scheduled')->orderBy('service_date')->first();
+            $serviceId = $activeService ? $activeService->id : null;
+        }
+
+        $pendingRecord = DetectedReference::create([
+            'service_id'         => $serviceId,
+            'transcript_snippet' => $detection['snippet'] ?? $cleanTranscript,
+            'detected_reference' => $canonicalReference,
+            'translation_code'   => $passageData['translation'] ?? ($translationCode ?: 'kjv'),
+            'passage_text'       => $passageData['text'] ?? '',
+            'verses_json'        => $passageData['verses'] ?? [],
+            'confidence_score'   => $detection['confidence'] ?? 0.95,
+            'status'             => 'pending',
+            'created_at'         => now(),
+        ]);
+
+        // -------------------------------------------------------------
+        // Step 6: Send it to the operator for review
+        // -------------------------------------------------------------
+        // Broadcast the real-time event so operator displays update instantly
+        event(new ScriptureDetected($pendingRecord, $passageData));
+
         return [
-            'detected'    => $detected,
-            'reference'   => $matchedReference,
-            'book'        => $book,
-            'chapter'     => $chapter,
-            'verse_start' => $verseStart,
-            'verse_end'   => $verseEnd,
-            'confidence'  => $confidence,
+            'success'  => true,
+            'step'     => 6,
+            'detected' => true,
+            'valid'    => true,
+            'message'  => "Scripture detected and queued for operator review: {$canonicalReference}",
+            'data'     => [
+                'detection_id'       => $pendingRecord->id,
+                'reference'          => $canonicalReference,
+                'book'               => $validation['book'],
+                'chapter'            => $validation['chapter'],
+                'verse_start'        => $validation['verse_start'],
+                'verse_end'          => $validation['verse_end'],
+                'translation'        => $pendingRecord->translation_code,
+                'confidence'         => (float) $pendingRecord->confidence_score,
+                'transcript_snippet' => $pendingRecord->transcript_snippet,
+                'passage'            => $passageData,
+                'status'             => $pendingRecord->status,
+                'service_id'         => $serviceId,
+                'created_at'         => $pendingRecord->created_at->toIso8601String(),
+            ],
         ];
     }
 }
