@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BibleController;
+use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ProjectionController;
 use App\Http\Controllers\Api\ProjectionQueueController;
 use App\Http\Controllers\Api\SavedPassageController;
@@ -48,6 +49,11 @@ $registerRoutes = function () {
     Route::delete('/projection-queues/clear', [ProjectionQueueController::class, 'clear']);
     Route::delete('/projection-queues/{id}', [ProjectionQueueController::class, 'destroy']);
     Route::post('/projection-queues/{id}/project', [ProjectionQueueController::class, 'project']);
+
+    // Dashboard & Services Real Stats Endpoints
+    Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
+    Route::get('/services', [DashboardController::class, 'services']);
+    Route::post('/services/switch', [DashboardController::class, 'switchService']);
 
     // Protected Routes (Sanctum Token Guarded)
     Route::middleware('auth:sanctum')->group(function () {
