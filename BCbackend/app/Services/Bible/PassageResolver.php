@@ -98,17 +98,40 @@ class PassageResolver
             $this->provider
         );
 
-        $parsedStructure = $this->referenceParser->parsePassageText($text, $detection['reference'] ?? null);
+        $primaryReference = $detection['reference'] ?? null;
+        $passageData = null;
+
+        if ($detection['detected'] && $primaryReference) {
+            if (!empty($detection['passage_text'])) {
+                $passageData = [
+                    'reference'        => $primaryReference,
+                    'translation'      => $detection['translation'] ?? ($translationCode ?: 'kjv'),
+                    'translation_name' => strtoupper($detection['translation'] ?? ($translationCode ?: 'kjv')),
+                    'text'             => $detection['passage_text'],
+                    'verses'           => $detection['verses'] ?? [],
+                ];
+            } else {
+                try {
+                    $passageData = $this->resolve($primaryReference, $translationCode);
+                } catch (\Throwable $e) {
+                    // Graceful fallback if provider lookup is unavailable
+                }
+            }
+        }
+
+        $parsedStructure = $this->referenceParser->parsePassageText($text, $primaryReference);
         $allReferences = $this->referenceParser->extractAll($text);
 
         return [
             'success'            => true,
             'detected'           => $detection['detected'],
             'match_type'         => $detection['match_type'] ?? null,
-            'primary_reference'  => $detection['reference'] ?? ($allReferences[0]['reference'] ?? null),
+            'primary_reference'  => $primaryReference ?? ($allReferences[0]['reference'] ?? null),
             'confidence'         => $detection['confidence'] ?? (count($allReferences) ? 0.95 : 0.0),
+            'matched_snippet'    => $detection['matched_snippet'] ?? null,
+            'passage'            => $passageData,
             'clean_text'         => $parsedStructure['clean_text'],
-            'verses'             => $parsedStructure['verses'],
+            'verses'             => $passageData['verses'] ?? $parsedStructure['verses'],
             'all_references'     => $allReferences,
             'cross_references'   => $this->referenceParser->detectCrossReferences($text),
         ];
@@ -153,6 +176,7 @@ class PassageResolver
         // Step 2: Detect a potential Bible reference or quoted passage text
         // -------------------------------------------------------------
         $detection = $this->referenceParser->parse($cleanTranscript);
+        $detection['match_type'] = $detection['detected'] ? 'citation' : null;
         $cachedPassageText = null;
         $cachedVerses = null;
 
@@ -168,6 +192,9 @@ class PassageResolver
                 $parsed = $this->referenceParser->parse($passageMatch['reference']);
                 if ($parsed['detected']) {
                     $detection = $parsed;
+                    $detection['snippet'] = $passageMatch['matched_snippet'] ?? $cleanTranscript;
+                    $detection['confidence'] = $passageMatch['confidence'] ?? $parsed['confidence'];
+                    $detection['match_type'] = $passageMatch['match_type'] ?? 'passage_text';
                     $cachedPassageText = $passageMatch['passage_text'] ?? null;
                     $cachedVerses = $passageMatch['verses'] ?? null;
                 }
@@ -278,6 +305,7 @@ class PassageResolver
                 'verse_end'          => $validation['verse_end'],
                 'translation'        => $pendingRecord->translation_code,
                 'confidence'         => (float) $pendingRecord->confidence_score,
+                'match_type'         => $detection['match_type'] ?? 'citation',
                 'transcript_snippet' => $pendingRecord->transcript_snippet,
                 'passage'            => $passageData,
                 'status'             => $pendingRecord->status,

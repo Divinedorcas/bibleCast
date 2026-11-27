@@ -148,4 +148,17 @@ class ReferenceParserTest extends TestCase
         $this->assertEquals('Isaiah 53:5', $crossRefs[0]['reference']);
         $this->assertEquals('Psalm 22:1', $crossRefs[1]['reference']);
     }
+
+    public function test_detects_passage_from_sermon_transcription_quote(): void
+    {
+        $transcript = 'And we know that all things work together for good to them that love God';
+        $result = $this->parser->detectFromPassageText($transcript);
+
+        $this->assertTrue($result['detected']);
+        $this->assertEquals('Romans 8:28', $result['reference']);
+        $this->assertEquals('sermon_concordance', $result['match_type']);
+        $this->assertEquals('Romans', $result['book']);
+        $this->assertEquals(8, $result['chapter']);
+        $this->assertEquals(28, $result['verse_start']);
+    }
 }

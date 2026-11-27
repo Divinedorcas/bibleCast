@@ -133,6 +133,55 @@ class ReferenceParser
     ];
 
     /**
+     * Notable sermon scripture concordance mapping spoken keyphrases to canonical citations.
+     * Enables sub-millisecond reverse passage detection during sermon audio transcription.
+     */
+    protected const SERMON_SCRIPTURE_CONCORDANCE = [
+        'all things work together for good to them that love god' => 'Romans 8:28',
+        'and we know that all things work together for good'     => 'Romans 8:28',
+        'all things work together for good'                     => 'Romans 8:28',
+        'in all things god works for the good of those'         => 'Romans 8:28',
+        'god works for the good of those who love him'          => 'Romans 8:28',
+        'god so loved the world that he gave his only begotten' => 'John 3:16',
+        'god so loved the world'                                => 'John 3:16',
+        'the lord is my shepherd i shall not want'              => 'Psalm 23:1',
+        'the lord is my shepherd'                               => 'Psalm 23:1',
+        'i can do all things through christ'                    => 'Philippians 4:13',
+        'trust in the lord with all thine heart'                => 'Proverbs 3:5',
+        'trust in the lord with all your heart'                 => 'Proverbs 3:5',
+        'in the beginning god created the heaven and the earth' => 'Genesis 1:1',
+        'in the beginning god created'                          => 'Genesis 1:1',
+        'in the beginning was the word'                         => 'John 1:1',
+        'for i know the thoughts that i think toward you'       => 'Jeremiah 29:11',
+        'thoughts of peace and not of evil'                     => 'Jeremiah 29:11',
+        'now faith is the substance of things hoped for'        => 'Hebrews 11:1',
+        'faith is the substance of things hoped for'            => 'Hebrews 11:1',
+        'be strong and of a good courage'                       => 'Joshua 1:9',
+        'he that dwelleth in the secret place of the most high' => 'Psalm 91:1',
+        'seek ye first the kingdom of god'                      => 'Matthew 6:33',
+        'thy word is a lamp unto my feet'                       => 'Psalm 119:105',
+        'if any man be in christ he is a new creature'          => '2 Corinthians 5:17',
+        'old things are passed away behold all things'          => '2 Corinthians 5:17',
+        'i am the way the truth and the life'                   => 'John 14:6',
+        'for by grace are ye saved through faith'               => 'Ephesians 2:8',
+        'come unto me all ye that labour'                       => 'Matthew 11:28',
+        'the steadfast love of the lord never ceaseth'          => 'Lamentations 3:22',
+        'do not be conformed to this world'                     => 'Romans 12:2',
+        'be not conformed to this world'                        => 'Romans 12:2',
+        'repent and be baptized every one of you'               => 'Acts 2:38',
+        'ye shall receive power after that the holy ghost'      => 'Acts 1:8',
+        'be anxious for nothing'                                => 'Philippians 4:6',
+        'no weapon that is formed against thee shall prosper'   => 'Isaiah 54:17',
+        'they that wait upon the lord shall renew their strength'=> 'Isaiah 40:31',
+        'the thief cometh not but for to steal and to kill'     => 'John 10:10',
+        'if we confess our sins he is faithful and just'        => '1 John 1:9',
+        'what shall separate us from the love of christ'        => 'Romans 8:35',
+        'where there is no vision the people perish'            => 'Proverbs 29:18',
+        'call unto me and i will answer thee'                   => 'Jeremiah 33:3',
+        'blessed is the man that walketh not in the counsel'    => 'Psalm 1:1',
+    ];
+
+    /**
      * Parse speech transcript or text and detect the primary Bible reference.
      *
      * @param  string  $transcript
@@ -324,26 +373,58 @@ class ReferenceParser
                 'verses'           => $dbMatch['verses_json'] ?? [],
                 'source'           => $dbMatch['source'],
                 'confidence'       => $dbMatch['confidence'],
-                'matched_snippet'  => $this->extractSnippet($cleanText, substr($cleanText, 0, 80)),
+                'matched_snippet'  => $this->extractSnippet($cleanText, substr($cleanText, 0, 120)),
             ];
         }
 
-        // Strategy 3: Query external Bible provider search if provider is supplied
-        if ($provider) {
+        // Strategy 3: Check sermon keyphrase concordance (Instant reverse lookup for spoken sermon quotes)
+        $normalizedForConcordance = $this->sanitizeForMatching($cleanText);
+        foreach (self::SERMON_SCRIPTURE_CONCORDANCE as $phrase => $canonicalRef) {
+            if (str_contains($normalizedForConcordance, $phrase)) {
+                $refInfo = $this->parse($canonicalRef);
+                return [
+                    'detected'         => true,
+                    'match_type'       => 'sermon_concordance',
+                    'reference'        => $canonicalRef,
+                    'book'             => $refInfo['book'] ?? null,
+                    'chapter'          => $refInfo['chapter'] ?? null,
+                    'verse_start'      => $refInfo['verse_start'] ?? null,
+                    'verse_end'        => $refInfo['verse_end'] ?? null,
+                    'translation'      => $translation ?: 'kjv',
+                    'confidence'       => 0.98,
+                    'matched_snippet'  => $this->extractSnippet($cleanText, $phrase),
+                    'passage_text'     => null,
+                ];
+            }
+        }
+
+        // Strategy 4: Query external Bible provider full-text search if phrase is long enough
+        if ($provider && strlen($normalizedForConcordance) >= 18 && str_word_count($normalizedForConcordance) >= 4) {
             try {
-                $searchResult = $provider->search($cleanText, $translation ?: 'kjv');
+                // Keep search query focused (max last 14 words) if transcript has long conversational preamble
+                $searchPhrase = $this->extractSearchPhrase($normalizedForConcordance);
+                $searchResult = $provider->search($searchPhrase, $translation ?: 'kjv');
+
                 if (!empty($searchResult['results'])) {
-                    $topResult = $searchResult['results'][0];
-                    return [
-                        'detected'         => true,
-                        'match_type'       => 'provider_search',
-                        'reference'        => $topResult['reference'],
-                        'translation'      => $topResult['translation'] ?? ($translation ?: 'kjv'),
-                        'passage_text'     => $topResult['text'],
-                        'verses'           => $topResult['verses'] ?? [],
-                        'confidence'       => 0.90,
-                        'matched_snippet'  => $this->extractSnippet($cleanText, substr($cleanText, 0, 80)),
-                    ];
+                    foreach ($searchResult['results'] as $candidate) {
+                        $verifiedConfidence = $this->verifyCandidateVerseMatch(
+                            $normalizedForConcordance,
+                            $this->sanitizeForMatching($candidate['text'] ?? '')
+                        );
+
+                        if ($verifiedConfidence !== null) {
+                            return [
+                                'detected'         => true,
+                                'match_type'       => 'provider_search',
+                                'reference'        => $candidate['reference'],
+                                'translation'      => $candidate['translation'] ?? ($translation ?: 'kjv'),
+                                'passage_text'     => $candidate['text'],
+                                'verses'           => $candidate['verses'] ?? [],
+                                'confidence'       => $verifiedConfidence,
+                                'matched_snippet'  => $this->extractSnippet($cleanText, substr($cleanText, 0, 120)),
+                            ];
+                        }
+                    }
                 }
             } catch (\Throwable $e) {
                 // Provider search failed gracefully
@@ -939,6 +1020,79 @@ class ReferenceParser
                 'source'           => $source,
                 'confidence'       => round(0.75 + ($overlapRatio * 0.20), 2),
             ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract a concise search phrase from a longer spoken transcript chunk.
+     */
+    protected function extractSearchPhrase(string $normalizedText): string
+    {
+        $words = explode(' ', trim($normalizedText));
+        if (count($words) <= 14) {
+            return $normalizedText;
+        }
+
+        return implode(' ', array_slice($words, -14));
+    }
+
+    /**
+     * Verify whether an external provider candidate verse genuinely matches spoken sermon text.
+     * Prevents unrelated ordinary speech from causing false-positive detections.
+     */
+    protected function verifyCandidateVerseMatch(string $normalizedInput, string $normalizedCandidate): ?float
+    {
+        if (empty($normalizedInput) || empty($normalizedCandidate)) {
+            return null;
+        }
+
+        // 1. Direct substring match (>= 18 characters)
+        if (
+            (strlen($normalizedInput) >= 18 && str_contains($normalizedCandidate, $normalizedInput)) ||
+            (strlen($normalizedCandidate) >= 18 && str_contains($normalizedInput, $normalizedCandidate))
+        ) {
+            return 0.96;
+        }
+
+        $inputWords = array_values(array_filter(explode(' ', $normalizedInput)));
+        $stopWords = [
+            'the', 'and', 'for', 'that', 'with', 'you', 'this', 'from', 'they',
+            'have', 'are', 'not', 'but', 'his', 'her', 'who', 'all', 'unto',
+            'them', 'shall', 'will', 'your', 'our', 'into', 'which', 'what',
+        ];
+
+        // 2. Contiguous 4+ word n-gram phrase match containing >= 3 distinctive words
+        $windowSize = min(5, count($inputWords));
+        if ($windowSize >= 4) {
+            for ($i = 0; $i <= count($inputWords) - $windowSize; $i++) {
+                $slice = array_slice($inputWords, $i, $windowSize);
+                $ngram = implode(' ', $slice);
+                $distinctive = array_filter($slice, fn($w) => strlen($w) >= 3 && !in_array($w, $stopWords, true));
+
+                if (count($distinctive) >= 3 && str_contains($normalizedCandidate, $ngram)) {
+                    return 0.91;
+                }
+            }
+        }
+
+        // 3. Verse-level distinctive word coverage fallback
+        $candidateWords = array_values(array_filter(
+            explode(' ', $normalizedCandidate),
+            fn($w) => strlen($w) >= 3 && !in_array($w, $stopWords, true)
+        ));
+        $inputDistinctive = array_values(array_filter(
+            $inputWords,
+            fn($w) => strlen($w) >= 3 && !in_array($w, $stopWords, true)
+        ));
+
+        if (count($candidateWords) >= 4 && count($inputDistinctive) >= 4) {
+            $overlap = count(array_intersect($candidateWords, $inputDistinctive));
+            $verseCoverage = $overlap / count($candidateWords);
+            if ($overlap >= 4 && $verseCoverage >= 0.65) {
+                return 0.86;
+            }
         }
 
         return null;
