@@ -1,26 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAudioInput } from '../hooks/useAudioInput';
 import { AudioControls } from '../components/speech/AudioControls';
+import { DetectionSuggestions } from '../components/speech/DetectionSuggestions';
 import { bibleService } from '../services/bibleService';
+import { speechService } from '../services/speechService';
 import { projectionService } from '../services/projectionService';
 import { queueService } from '../services/queueService';
+import { detectPassageFromText } from '../utils/referenceParser';
 import {
   Radio,
   Tv,
   CheckCircle2,
-  XCircle,
-  Plus,
-  AlertCircle,
-  Sparkles,
-  BookOpen,
-  Layers,
   Clock,
-  Eye,
   ExternalLink,
   Volume2,
-  Trash2,
   Search,
-  Check,
 } from 'lucide-react';
 
 export function LiveService() {
@@ -35,6 +29,7 @@ export function LiveService() {
 
   // Detected references queue (Human-in-the-loop review)
   const [detections, setDetections] = useState([]);
+  const [reviewingState, setReviewingState] = useState({ id: null, action: null });
 
   // Toast alert
   const [toast, setToast] = useState('');
@@ -71,11 +66,47 @@ export function LiveService() {
       if (res?.data) {
         setCurrentProjection(res.data);
       }
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   useEffect(() => {
     syncCurrentProjection();
+
+    // Hydrate any pending backend speech detections awaiting operator review
+    speechService
+      .getPendingDetections(10)
+      .then((res) => {
+        const items = res?.data || [];
+        if (Array.isArray(items) && items.length > 0) {
+          setDetections((prev) => {
+            const existingRefs = new Set(prev.map((d) => d.reference.toLowerCase()));
+            const mapped = items
+              .filter((row) => row.detected_reference && !existingRefs.has(row.detected_reference.toLowerCase()))
+              .map((row) => ({
+                id: `db_${row.id}`,
+                detectionId: row.id,
+                reference: row.detected_reference,
+                transcriptSnippet: row.transcript_snippet || '',
+                translation: row.translation_code || 'kjv',
+                confidence: typeof row.confidence_score === 'number' ? row.confidence_score : 0.9,
+                timestamp: row.created_at
+                  ? new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : '',
+                passage: row.passage_text
+                  ? {
+                      reference: row.detected_reference,
+                      translation: row.translation_code || 'kjv',
+                      text: row.passage_text,
+                      verses: row.verses_json || [],
+                    }
+                  : null,
+                loadingPassage: false,
+              }));
+            return [...prev, ...mapped].slice(0, 10);
+          });
+        }
+      })
+      .catch(() => {});
 
     const handleProjectionUpdated = (e) => {
       if (e.detail) {
@@ -95,6 +126,78 @@ export function LiveService() {
   };
 
   // ─── Scripture Reference Detection Engine ─────────────────────────────────
+  const queueDetectedPassage = useCallback(
+    (matchedRef, snippet, matchConfidence = 0.95, preResolvedPassage = null, meta = {}) => {
+      if (!matchedRef) return;
+
+      const cardId = meta.detectionId ? `db_${meta.detectionId}` : `det_${Date.now()}`;
+
+      setDetections((prev) => {
+        const existingIndex = prev.findIndex(
+          (d) => d.reference.toLowerCase() === matchedRef.toLowerCase()
+        );
+
+        // If card already exists (e.g. optimistic card waiting for backend record/passage), hydrate it
+        if (existingIndex !== -1) {
+          return prev.map((item, idx) =>
+            idx === existingIndex
+              ? {
+                  ...item,
+                  detectionId: meta.detectionId || item.detectionId,
+                  matchType: meta.matchType || item.matchType,
+                  confidence: matchConfidence ?? item.confidence,
+                  passage: preResolvedPassage || item.passage,
+                  loadingPassage: preResolvedPassage ? false : item.loadingPassage,
+                }
+              : item
+          );
+        }
+
+        const newDetection = {
+          id: cardId,
+          detectionId: meta.detectionId || null,
+          reference: matchedRef,
+          transcriptSnippet: snippet,
+          translation: defaultTranslation,
+          confidence: matchConfidence,
+          matchType: meta.matchType || null,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          passage: preResolvedPassage || null,
+          loadingPassage: !preResolvedPassage,
+        };
+
+        return [newDetection, ...prev].slice(0, 10);
+      });
+    },
+    [defaultTranslation]
+  );
+
+  const resolvePassageFallback = useCallback(
+    (matchedRef) => {
+      bibleService
+        .getPassage(matchedRef, defaultTranslation)
+        .then((pRes) => {
+          setDetections((current) =>
+            current.map((item) =>
+              item.reference.toLowerCase() === matchedRef.toLowerCase()
+                ? { ...item, passage: pRes?.data || item.passage, loadingPassage: false }
+                : item
+            )
+          );
+        })
+        .catch(() => {
+          setDetections((current) =>
+            current.map((item) =>
+              item.reference.toLowerCase() === matchedRef.toLowerCase()
+                ? { ...item, loadingPassage: false }
+                : item
+            )
+          );
+        });
+    },
+    [defaultTranslation]
+  );
+
   const processTranscriptChunk = useCallback(
     async (finalPhrase, fullTranscript) => {
       if (!autoDetectEnabled || !finalPhrase) return;
@@ -103,61 +206,75 @@ export function LiveService() {
       if (cleaned.length < 4 || processedTranscriptsRef.current.has(cleaned)) return;
       processedTranscriptsRef.current.add(cleaned);
 
+      // Build candidate windows: latest finalized chunk first, then trailing context window
+      // (handles mid-verse pauses where speech recognition splits a verse across two chunks)
+      const trailingWindow = (fullTranscript || '').trim().slice(-240).trim();
+      const candidateInputs =
+        trailingWindow && trailingWindow.length > cleaned.length
+          ? [cleaned, trailingWindow]
+          : [cleaned];
+
       try {
-        // Call backend regex and tokenizer parser
-        const res = await bibleService.parseReference(cleaned);
-        const data = res?.data;
+        // 1. Fast client-side detection (citations & instant sermon concordance)
+        for (const candidateText of candidateInputs) {
+          const localMatch = detectPassageFromText(candidateText);
+          if (localMatch?.detected && localMatch?.reference) {
+            queueDetectedPassage(
+              localMatch.reference,
+              cleaned,
+              localMatch.confidence || 0.98,
+              null,
+              { matchType: localMatch.matchType || 'citation' }
+            );
 
-        if (data && data.detected && data.reference) {
-          const matchedRef = data.reference;
-
-          // Check if this reference is already in suggestions
-          setDetections((prev) => {
-            if (prev.some((d) => d.reference.toLowerCase() === matchedRef.toLowerCase())) {
-              return prev;
-            }
-
-            const newDetection = {
-              id: 'det_' + Date.now(),
-              reference: matchedRef,
-              transcriptSnippet: cleaned,
-              translation: defaultTranslation,
-              confidence: data.confidence || 0.95,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              passage: null,
-              loadingPassage: true,
-            };
-
-            // Immediately background-fetch full passage text so it's ready for instant projection
-            bibleService
-              .getPassage(matchedRef, defaultTranslation)
-              .then((pRes) => {
-                if (pRes?.data) {
-                  setDetections((current) =>
-                    current.map((item) =>
-                      item.id === newDetection.id
-                        ? { ...item, passage: pRes.data, loadingPassage: false }
-                        : item
-                    )
+            // Persist pending detection via backend 6-step workflow and resolve full passage
+            speechService
+              .processTranscript(candidateText, null, defaultTranslation)
+              .then((res) => {
+                const payload = res?.data;
+                if (res?.detected && payload?.reference && payload?.passage?.text) {
+                  queueDetectedPassage(
+                    payload.reference,
+                    cleaned,
+                    payload.confidence || localMatch.confidence || 0.98,
+                    payload.passage,
+                    { detectionId: payload.detection_id, matchType: payload.match_type }
                   );
+                } else {
+                  resolvePassageFallback(localMatch.reference);
                 }
               })
               .catch(() => {
-                setDetections((current) =>
-                  current.map((item) =>
-                    item.id === newDetection.id ? { ...item, loadingPassage: false } : item
-                  )
-                );
+                resolvePassageFallback(localMatch.reference);
               });
+            return;
+          }
+        }
 
-            return [newDetection, ...prev].slice(0, 10);
-          });
+        // 2. Backend 6-step pipeline (local DB + concordance + full-text Bible search)
+        const queryText = candidateInputs[candidateInputs.length - 1];
+        if (queryText.split(/\s+/).length >= 3) {
+          const res = await speechService.processTranscript(queryText, null, defaultTranslation);
+          const payload = res?.data;
+          if (res?.detected && res?.valid !== false && payload?.reference) {
+            queueDetectedPassage(
+              payload.reference,
+              cleaned,
+              payload.confidence || 0.9,
+              payload.passage?.text ? payload.passage : null,
+              { detectionId: payload.detection_id, matchType: payload.match_type }
+            );
+
+            if (!payload.passage?.text) {
+              resolvePassageFallback(payload.reference);
+            }
+          }
         }
       } catch (err) {
         console.warn('Scripture reference parse check error:', err);
       }
     },
-    [autoDetectEnabled, defaultTranslation]
+    [autoDetectEnabled, defaultTranslation, queueDetectedPassage, resolvePassageFallback]
   );
 
   // Hook into live audio input & Web Speech API
@@ -180,19 +297,42 @@ export function LiveService() {
     onTranscript: processTranscriptChunk,
   });
 
-  // ─── Operator Actions ──────────────────────────────────────────────────────
+  // ─── Operator Actions (Approval Gate) ──────────────────────────────────────
 
-  // 1. Approve & Project Live to Sanctuary Screens
+  // 1. Approve & Project Live to JE Display
   const handleApproveAndProject = async (detection) => {
+    if (!detection || reviewingState.id) return;
+
+    setReviewingState({ id: detection.id, action: 'approve' });
     try {
       let passageToProject = detection.passage;
 
-      if (!passageToProject) {
+      if (!passageToProject?.text) {
         const res = await bibleService.getPassage(detection.reference, detection.translation);
         passageToProject = res?.data;
       }
 
-      if (passageToProject) {
+      if (!passageToProject?.text) {
+        showToast(`Cannot project "${detection.reference}" until passage text is resolved.`);
+        return;
+      }
+
+      if (detection.detectionId) {
+        // Persist operator approval & Projection via SpeechController (avoids duplicate DB records)
+        const reviewRes = await speechService.reviewDetection(detection.detectionId, 'approve');
+        const serverProjection = reviewRes?.data?.projection;
+
+        const synced = projectionService.syncDisplayLocally({
+          reference: serverProjection?.reference || passageToProject.reference,
+          translation_code: serverProjection?.translation_code || passageToProject.translation || detection.translation,
+          passage_text: serverProjection?.passage_text || passageToProject.text,
+          verses_json: serverProjection?.verses_json || passageToProject.verses || [],
+          mode: 'voice_detected',
+          status: 'projected',
+          projected_at: serverProjection?.projected_at,
+        });
+        setCurrentProjection(synced);
+      } else {
         await projectionService.projectScripture({
           reference: passageToProject.reference,
           translation_code: passageToProject.translation || detection.translation,
@@ -200,7 +340,6 @@ export function LiveService() {
           verses_json: passageToProject.verses || [],
           mode: 'voice_detected',
         });
-        showToast(`"${passageToProject.reference}" is now LIVE on sanctuary screens!`);
         setCurrentProjection({
           reference: passageToProject.reference,
           translation: passageToProject.translation || detection.translation,
@@ -208,8 +347,14 @@ export function LiveService() {
           status: 'projected',
         });
       }
+
+      setDetections((prev) => prev.filter((d) => d.id !== detection.id));
+      showToast(`"${passageToProject.reference}" approved and LIVE on JE display!`);
     } catch (err) {
       console.error('Failed to project scripture:', err);
+      showToast('Failed to approve passage for projection.');
+    } finally {
+      setReviewingState({ id: null, action: null });
     }
   };
 
@@ -231,9 +376,35 @@ export function LiveService() {
     }
   };
 
-  // 3. Dismiss Detection
-  const handleDismiss = (id) => {
-    setDetections((prev) => prev.filter((d) => d.id !== id));
+  // 3. Reject Detection (Block False Detection from Projector)
+  const handleReject = async (detection) => {
+    if (!detection || reviewingState.id) return;
+
+    setReviewingState({ id: detection.id, action: 'reject' });
+    try {
+      if (detection.detectionId) {
+        await speechService.reviewDetection(detection.detectionId, 'reject');
+      }
+      setDetections((prev) => prev.filter((d) => d.id !== detection.id));
+      showToast(`Rejected "${detection.reference}" — blocked from display.`);
+    } catch (err) {
+      console.warn('Reject detection warning:', err);
+      setDetections((prev) => prev.filter((d) => d.id !== detection.id));
+    } finally {
+      setReviewingState({ id: null, action: null });
+    }
+  };
+
+  const handleRejectAll = async () => {
+    const itemsToReject = detections.filter((d) => d.detectionId);
+    setDetections([]);
+    showToast('Cleared all pending detections.');
+
+    if (itemsToReject.length > 0) {
+      await Promise.allSettled(
+        itemsToReject.map((item) => speechService.reviewDetection(item.detectionId, 'reject'))
+      );
+    }
   };
 
   // 4. Quick Clear / Blackout
@@ -258,12 +429,15 @@ export function LiveService() {
     try {
       const res = await bibleService.getPassage(manualQuery.trim(), defaultTranslation);
       if (res?.data) {
+        // Manual fallback suggestion stays inside Approval Gate until approved
         const newDetection = {
           id: 'manual_' + Date.now(),
+          detectionId: null,
           reference: res.data.reference,
           transcriptSnippet: 'Operator manual lookup',
           translation: defaultTranslation,
           confidence: 1.0,
+          matchType: 'manual',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           passage: res.data,
           loadingPassage: false,
@@ -379,105 +553,20 @@ export function LiveService() {
 
       {/* Main Live Workspace: 2 Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column (7 cols): Spoken Audio Stream & Human-in-the-Loop Suggestions */}
+        {/* Left Column (7 cols): Operator Approval Gate & Spoken Audio Stream */}
         <div className="lg:col-span-7 space-y-6">
           {/* Detected Scripture Suggestions Panel (Human-in-the-Loop Gate) */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-400" />
-                <h3 className="text-sm font-bold text-slate-100">
-                  Detected Scripture Suggestions
-                </h3>
-              </div>
-              <span className="text-xs font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                {detections.length} pending approval
-              </span>
-            </div>
-
-            {detections.length === 0 ? (
-              <div className="py-10 text-center text-slate-500 space-y-2">
-                <BookOpen className="w-10 h-10 mx-auto text-slate-700" />
-                <p className="text-sm font-medium text-slate-400">
-                  Awaiting spoken scripture references...
-                </p>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  When the pastor cites scripture (e.g. &ldquo;Turn to John 3:16&rdquo;), detected passages will appear here for operator approval.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-                {detections.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-4 bg-slate-950 border border-amber-500/30 rounded-xl space-y-3 shadow-lg hover:border-amber-500 transition"
-                  >
-                    {/* Header: Reference + Spoken Context */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-lg font-serif font-bold text-amber-300">
-                            {item.reference}
-                          </h4>
-                          <span className="text-[10px] font-mono uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold">
-                            {(item.passage?.translation || item.translation || 'kjv').toUpperCase()}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-500">
-                            {item.timestamp}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-400 font-mono mt-1 italic">
-                          Heard: &ldquo;{item.transcriptSnippet}&rdquo;
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDismiss(item.id)}
-                        className="text-slate-500 hover:text-rose-400 p-1 rounded transition"
-                        title="Dismiss suggestion"
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* Scripture Preview Body */}
-                    {item.passage ? (
-                      <p className="text-sm text-slate-200 font-serif leading-relaxed italic border-l-2 border-amber-500/40 pl-3 py-0.5 bg-slate-900/60 rounded-r">
-                        &ldquo;{item.passage.text}&rdquo;
-                      </p>
-                    ) : (
-                      <div className="text-xs text-slate-500 italic flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                        <span>Resolving scripture text from Bible provider...</span>
-                      </div>
-                    )}
-
-                    {/* Operator Action Buttons (Approval Gate) */}
-                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-900">
-                      <button
-                        type="button"
-                        onClick={() => handleAddToQueue(item)}
-                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition"
-                      >
-                        <Layers className="w-3.5 h-3.5" />
-                        <span>Add to Queue</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleApproveAndProject(item)}
-                        className="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition shadow-md shadow-emerald-500/20 active:scale-98"
-                      >
-                        <Tv className="w-3.5 h-3.5" />
-                        <span>Approve &amp; Project Live</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
+          <DetectionSuggestions
+            detections={detections}
+            onApprove={handleApproveAndProject}
+            onReject={handleReject}
+            onRejectAll={handleRejectAll}
+            onAddToQueue={handleAddToQueue}
+            reviewingId={reviewingState.id}
+            reviewAction={reviewingState.action}
+            defaultTranslation={defaultTranslation}
+            onChangeTranslation={setDefaultTranslation}
+          >
             {/* Quick Manual Search Bar in Suggestions Panel */}
             <form onSubmit={handleManualSearch} className="pt-2 border-t border-slate-800 flex gap-2">
               <div className="relative flex-1">
@@ -498,7 +587,7 @@ export function LiveService() {
                 {manualLoading ? 'Searching...' : 'Lookup'}
               </button>
             </form>
-          </div>
+          </DetectionSuggestions>
 
           {/* Live Transcript Stream */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-xl">

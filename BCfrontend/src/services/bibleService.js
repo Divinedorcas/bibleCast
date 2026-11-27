@@ -64,6 +64,38 @@ export const bibleService = {
     return response.data;
   },
 
+  /**
+   * Detect Bible passage from spoken sermon transcript (either reference citation or quoted verse text).
+   *
+   * @param {string} text Spoken sermon transcript snippet or scripture quote
+   * @param {string} [translation='kjv']
+   * @returns {Promise<Object>}
+   */
+  async detectFromText(text, translation = 'kjv') {
+    const response = await api.post('/bible/detect-from-text', {
+      text,
+      translation,
+    });
+    return response.data;
+  },
+
+  /**
+   * Process sermon transcript through the end-to-end 6-step detection workflow.
+   *
+   * @param {string} transcript Spoken audio transcript snippet
+   * @param {number|null} [serviceId=null]
+   * @param {string} [translation='kjv']
+   * @returns {Promise<Object>}
+   */
+  async processTranscript(transcript, serviceId = null, translation = 'kjv') {
+    const response = await api.post('/speech/process-transcript', {
+      transcript,
+      service_id: serviceId,
+      translation,
+    });
+    return response.data;
+  },
+
   // ─── Projection Queue Management ──────────────────────────────────────────
 
   /**

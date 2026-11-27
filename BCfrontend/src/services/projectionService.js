@@ -57,39 +57,50 @@ export const projectionService = {
   },
 
   /**
+   * Synchronize a projected scripture immediately across localStorage,
+   * the active tab, and open projector windows via BroadcastChannel.
+   *
+   * @param {Object} projectionPayload
+   * @returns {Object} Normalized projection payload
+   */
+  syncDisplayLocally(projectionPayload) {
+    const normalized = {
+      reference: projectionPayload.reference,
+      translation: projectionPayload.translation_code || projectionPayload.translation || 'kjv',
+      text: projectionPayload.passage_text || projectionPayload.text,
+      verses: projectionPayload.verses_json || projectionPayload.verses || [],
+      status: projectionPayload.status || 'projected',
+      mode: projectionPayload.mode || 'manual',
+      projected_at: projectionPayload.projected_at || new Date().toISOString(),
+    };
+
+    try {
+      localStorage.setItem(PROJECTION_STORAGE_KEY, JSON.stringify(normalized));
+      window.dispatchEvent(
+        new CustomEvent('biblecast:projection_updated', { detail: normalized })
+      );
+    } catch (_) {}
+
+    if (broadcastChannel) {
+      broadcastChannel.postMessage({
+        type: 'PROJECT_SCRIPTURE',
+        payload: normalized,
+      });
+    }
+
+    return normalized;
+  },
+
+  /**
    * Record a new scripture projection and broadcast live to sanctuary screens.
    *
    * @param {Object} data { reference, translation_code, passage_text, verses_json, mode, service_id }
    * @returns {Promise<Object>}
    */
   async projectScripture(data) {
-    const projectionPayload = {
-      reference: data.reference,
-      translation: data.translation_code || data.translation || 'kjv',
-      text: data.passage_text || data.text,
-      verses: data.verses_json || data.verses || [],
-      status: 'projected',
-      mode: data.mode || 'manual',
-      projected_at: new Date().toISOString(),
-    };
+    const projectionPayload = this.syncDisplayLocally(data);
 
-    // 1. Immediately store in localStorage for multi-window / cross-tab sync
-    try {
-      localStorage.setItem(PROJECTION_STORAGE_KEY, JSON.stringify(projectionPayload));
-      window.dispatchEvent(
-        new CustomEvent('biblecast:projection_updated', { detail: projectionPayload })
-      );
-    } catch (_) {}
-
-    // 2. Broadcast immediately over BroadcastChannel
-    if (broadcastChannel) {
-      broadcastChannel.postMessage({
-        type: 'PROJECT_SCRIPTURE',
-        payload: projectionPayload,
-      });
-    }
-
-    // 3. Persist to backend database for audit and history
+    // Persist to backend database for audit and history
     try {
       const response = await api.post('/projections', {
         reference: projectionPayload.reference,

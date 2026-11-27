@@ -53,6 +53,41 @@ export const BOOK_ALIASES = {
   'third john': '3 John',
 };
 
+export const SERMON_CONCORDANCE = {
+  'all things work together for good to them that love god': 'Romans 8:28',
+  'and we know that all things work together for good': 'Romans 8:28',
+  'all things work together for good': 'Romans 8:28',
+  'in all things god works for the good of those': 'Romans 8:28',
+  'god works for the good of those who love him': 'Romans 8:28',
+  'god so loved the world that he gave his only begotten': 'John 3:16',
+  'god so loved the world': 'John 3:16',
+  'the lord is my shepherd i shall not want': 'Psalm 23:1',
+  'the lord is my shepherd': 'Psalm 23:1',
+  'i can do all things through christ': 'Philippians 4:13',
+  'trust in the lord with all thine heart': 'Proverbs 3:5',
+  'trust in the lord with all your heart': 'Proverbs 3:5',
+  'in the beginning god created the heaven and the earth': 'Genesis 1:1',
+  'in the beginning god created': 'Genesis 1:1',
+  'in the beginning was the word': 'John 1:1',
+  'for i know the thoughts that i think toward you': 'Jeremiah 29:11',
+  'now faith is the substance of things hoped for': 'Hebrews 11:1',
+  'be strong and of a good courage': 'Joshua 1:9',
+  'he that dwelleth in the secret place of the most high': 'Psalm 91:1',
+  'seek ye first the kingdom of god': 'Matthew 6:33',
+  'thy word is a lamp unto my feet': 'Psalm 119:105',
+  'if any man be in christ he is a new creature': '2 Corinthians 5:17',
+  'i am the way the truth and the life': 'John 14:6',
+  'for by grace are ye saved through faith': 'Ephesians 2:8',
+  'come unto me all ye that labour': 'Matthew 11:28',
+  'the steadfast love of the lord never ceaseth': 'Lamentations 3:22',
+  'do not be conformed to this world': 'Romans 12:2',
+  'repent and be baptized every one of you': 'Acts 2:38',
+  'ye shall receive power after that the holy ghost': 'Acts 1:8',
+  'be anxious for nothing': 'Philippians 4:6',
+  'no weapon that is formed against thee shall prosper': 'Isaiah 54:17',
+  'they that wait upon the lord shall renew their strength': 'Isaiah 40:31',
+};
+
 /**
  * Normalize spoken numbers (e.g. "first" to "1").
  */
@@ -198,4 +233,35 @@ export function cleanPassageText(text) {
     .replace(/\[[a-zA-Z]\]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Detect Bible reference from spoken sermon quote / passage text.
+ */
+export function detectPassageFromText(text) {
+  if (!text) return { detected: false };
+
+  // 1. Direct citation check
+  const citation = parseReference(text);
+  if (citation.detected) return citation;
+
+  // 2. Sermon Concordance check
+  const clean = text.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+  for (const [phrase, ref] of Object.entries(SERMON_CONCORDANCE)) {
+    if (clean.includes(phrase)) {
+      const parsed = parseReference(ref);
+      return {
+        detected: true,
+        reference: ref,
+        book: parsed.book,
+        chapter: parsed.chapter,
+        verseStart: parsed.verseStart,
+        verseEnd: parsed.verseEnd,
+        confidence: 0.98,
+        matchType: 'sermon_concordance',
+      };
+    }
+  }
+
+  return { detected: false };
 }
