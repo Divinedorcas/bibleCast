@@ -7,7 +7,7 @@ A living progress log and task journal tracking the development, architecture mi
 ## 📌 Project Overview & Current Status
 
 - **Project Name:** BibleCast
-- **Current Phase:** Phase 6 (Live Console, Queue & Real Dashboard Complete) &rarr; Entering Phase 7 (Testing, Audio Line-In Tuning & Deployment)
+- **Current Phase:** Phase 6 Complete &rarr; Phase 7 (Sermon Quote Detection, Approval Gate &amp; Line-In Deployment In Progress)
 - **Primary Workspaces:**
   - Frontend: [`c:\Users\Dorcas\Desktop\bibleCast\BCfrontend`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCfrontend) (React 18 + Vite)
   - Backend: [`c:\Users\Dorcas\Desktop\bibleCast\BCbackend`](file:///c:/Users/Dorcas/Desktop/bibleCast/BCbackend) (Laravel 12 Framework)
@@ -38,7 +38,7 @@ bibleCast/
 | **Phase 4** | Frontend operator console layout, theme & state management | **Completed** | 100% |
 | **Phase 5** | Live audio capture, Web Speech API & scripture citation extraction | **Completed** | 100% |
 | **Phase 6** | Projector stage route (`/projector`), fullscreen dual-display & broadcast sync | **Completed** | 100% |
-| **Phase 7** | Sanctuary line-in audio testing, latency optimization & deployment | **In Progress** | 70% |
+| **Phase 7** | Sanctuary line-in audio testing, latency optimization & deployment | **In Progress** | 85% |
 
 ---
 
@@ -205,6 +205,29 @@ bibleCast/
   - **Active Operators:** Real registered and signed-in operators from `users` table.
 - [x] Create frontend `dashboardService.js`.
 - [x] Add backend tests in `DashboardTest.php` (all 34 backend feature and unit tests passing with 133 assertions).
+
+---
+
+### 2026-11-25 (Day 10) &mdash; 6-Step Speech Detection Workflow &amp; Sermon Quote Detection
+
+#### Objectives:
+- [x] Create `DetectedReference` (`SpeechDetection` alias) model, `detected_references` migration, and `ScriptureDetected` broadcast event.
+- [x] Implement `ReferenceParser.php` covering 66 canon books, spoken ordinals, canon bounds validation, multi-reference extraction (`extractAll`), passage sanitization (`cleanPassageText`), and cross-reference extraction.
+- [x] Coordinate the 6-step pipeline in `PassageResolver.php`: receive transcription &rarr; detect citation/passage &rarr; validate bounds &rarr; retrieve passage &rarr; create pending detection &rarr; broadcast `ScriptureDetected` for operator review.
+- [x] Implement `SpeechController.php` exposing `/speech/process-transcript`, `/speech/detect-passage`, `/speech/detections`, and `/speech/detections/{id}/review`.
+- [x] Add reverse passage detection from transcribed sermon quotes (e.g., *"And we know that all things work together for good to them that love God"* &rarr; **Romans 8:28**) via local database matching, instant sermon concordance, and verified full-text search fallback in `BibleApiService.php` (`searchScriptureText()`).
+- [x] Create client-side `referenceParser.js` and `formatPassage.js` utilities in `BCfrontend/src/utils/`.
+- [x] Add unit and feature tests in `ReferenceParserTest.php` and `SpeechWorkflowTest.php` (57 backend tests passing with 229 assertions).
+
+---
+
+### 2026-11-27 (Day 11) &mdash; Human-in-the-Loop Operator Approval Gate UI
+
+#### Objectives:
+- [x] Build `DetectionCard.jsx` displaying detected reference, confidence level percentage/tier bar with low-confidence false-detection warning, retrieved passage preview, translation badge, and explicit **Approve** / **Reject** controls.
+- [x] Build `DetectionSuggestions.jsx` approval queue panel with safety gate badge, translation selector (`KJV`, `WEB`, `BBE`), pending counter, and bulk **Reject All** cleanup.
+- [x] Create `speechService.js` and extract `syncDisplayLocally()` in `projectionService.js` to sync approved projections cleanly to JE Display without duplicate projection records.
+- [x] Integrate sliding-window sermon transcript detection and Approve/Reject persistence into `LiveService.jsx` so unapproved or false detections never appear on the projector.
 
 ---
 
