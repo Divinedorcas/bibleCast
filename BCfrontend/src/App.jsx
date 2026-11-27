@@ -11,6 +11,7 @@ import { BibleSearch } from './pages/BibleSearch';
 import { History } from './pages/History';
 import { Queue } from './pages/Queue';
 import { LiveService } from './pages/LiveService';
+import { Services } from './pages/Services';
 import { Projector } from './pages/Projector';
 
 export default function App() {
@@ -58,6 +59,18 @@ export default function App() {
               <ProtectedRoute>
                 <DashboardLayout title="Live Service Console">
                   <LiveService />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Church Service Management */}
+          <Route
+            path="/services"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout title="Church Services">
+                  <Services />
                 </DashboardLayout>
               </ProtectedRoute>
             }

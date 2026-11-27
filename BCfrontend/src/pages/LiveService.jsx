@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useAudioInput } from '../hooks/useAudioInput';
 import { AudioControls } from '../components/speech/AudioControls';
 import { DetectionSuggestions } from '../components/speech/DetectionSuggestions';
 import { bibleService } from '../services/bibleService';
 import { speechService } from '../services/speechService';
+import { serviceService } from '../services/serviceService';
 import { projectionService } from '../services/projectionService';
 import { queueService } from '../services/queueService';
 import { detectPassageFromText } from '../utils/referenceParser';
@@ -15,6 +17,7 @@ import {
   ExternalLink,
   Volume2,
   Search,
+  Calendar,
 } from 'lucide-react';
 
 export function LiveService() {
@@ -26,6 +29,9 @@ export function LiveService() {
 
   // Active sanctuary projection state
   const [currentProjection, setCurrentProjection] = useState(null);
+
+  // Active church service tracking
+  const [activeService, setActiveService] = useState(null);
 
   // Detected references queue (Human-in-the-loop review)
   const [detections, setDetections] = useState([]);
@@ -69,8 +75,17 @@ export function LiveService() {
     } catch (_) { }
   }, []);
 
+  const syncActiveService = useCallback(async () => {
+    try {
+      const res = await serviceService.getServices({ status: 'in_progress' });
+      const active = Array.isArray(res?.data) ? res.data[0] || null : null;
+      setActiveService(active);
+    } catch (_) {}
+  }, []);
+
   useEffect(() => {
     syncCurrentProjection();
+    syncActiveService();
 
     // Hydrate any pending backend speech detections awaiting operator review
     speechService
@@ -114,11 +129,17 @@ export function LiveService() {
       }
     };
 
+    const handleServiceUpdated = () => {
+      syncActiveService();
+    };
+
     window.addEventListener('biblecast:projection_updated', handleProjectionUpdated);
+    window.addEventListener('biblecast:service_updated', handleServiceUpdated);
     return () => {
       window.removeEventListener('biblecast:projection_updated', handleProjectionUpdated);
+      window.removeEventListener('biblecast:service_updated', handleServiceUpdated);
     };
-  }, [syncCurrentProjection]);
+  }, [syncCurrentProjection, syncActiveService]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -229,7 +250,7 @@ export function LiveService() {
 
             // Persist pending detection via backend 6-step workflow and resolve full passage
             speechService
-              .processTranscript(candidateText, null, defaultTranslation)
+              .processTranscript(candidateText, activeService?.id || null, defaultTranslation)
               .then((res) => {
                 const payload = res?.data;
                 if (res?.detected && payload?.reference && payload?.passage?.text) {
@@ -254,7 +275,11 @@ export function LiveService() {
         // 2. Backend 6-step pipeline (local DB + concordance + full-text Bible search)
         const queryText = candidateInputs[candidateInputs.length - 1];
         if (queryText.split(/\s+/).length >= 3) {
-          const res = await speechService.processTranscript(queryText, null, defaultTranslation);
+          const res = await speechService.processTranscript(
+            queryText,
+            activeService?.id || null,
+            defaultTranslation
+          );
           const payload = res?.data;
           if (res?.detected && res?.valid !== false && payload?.reference) {
             queueDetectedPassage(
@@ -274,7 +299,7 @@ export function LiveService() {
         console.warn('Scripture reference parse check error:', err);
       }
     },
-    [autoDetectEnabled, defaultTranslation, queueDetectedPassage, resolvePassageFallback]
+    [autoDetectEnabled, defaultTranslation, activeService, queueDetectedPassage, resolvePassageFallback]
   );
 
   // Hook into live audio input & Web Speech API
@@ -338,6 +363,7 @@ export function LiveService() {
           translation_code: passageToProject.translation || detection.translation,
           passage_text: passageToProject.text,
           verses_json: passageToProject.verses || [],
+          service_id: activeService?.id || null,
           mode: 'voice_detected',
         });
         setCurrentProjection({
@@ -486,16 +512,28 @@ export function LiveService() {
               <h2 className="text-xl font-bold font-serif text-slate-100">
                 Live Sanctuary Console
               </h2>
-              <span className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Service Active
-              </span>
+              {activeService ? (
+                <span className="flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {activeService.name}
+                </span>
+              ) : (
+                <Link
+                  to="/services"
+                  className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 transition"
+                >
+                  Start a Service
+                </Link>
+              )}
             </div>
             <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-2 font-mono">
               <Clock className="w-3.5 h-3.5 text-amber-400" />
               <span>Elapsed: {formatTimer(serviceSeconds)}</span>
               <span>&bull;</span>
-              <span>KJV / WEB Auto-Resolver</span>
+              <Link to="/services" className="text-amber-400 hover:text-amber-300 inline-flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                Manage Services
+              </Link>
             </p>
           </div>
         </div>

@@ -10,11 +10,13 @@ import {
   Tv,
   LogOut,
   X,
+  Calendar,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: <LayoutDashboard className="w-4 h-4" />, label: 'Dashboard' },
+  { to: '/services', icon: <Calendar className="w-4 h-4" />, label: 'Services' },
   { to: '/live', icon: <Radio className="w-4 h-4" />, label: 'Live Console' },
   { to: '/search', icon: <Search className="w-4 h-4" />, label: 'Scripture Search' },
   { to: '/queue', icon: <Layers className="w-4 h-4" />, label: 'Service Queue' },

@@ -264,16 +264,24 @@ export function Dashboard() {
 
     window.addEventListener('biblecast:projection_updated', handleProjectionUpdated);
     window.addEventListener('biblecast:queue_updated', handleProjectionUpdated);
+    window.addEventListener('biblecast:service_updated', handleProjectionUpdated);
 
     return () => {
       window.removeEventListener('biblecast:projection_updated', handleProjectionUpdated);
       window.removeEventListener('biblecast:queue_updated', handleProjectionUpdated);
+      window.removeEventListener('biblecast:service_updated', handleProjectionUpdated);
     };
   }, [loadStats]);
 
   // Handle service switching (1st service, 2nd service, tuesday service, thursday service)
   const handleServiceChange = async (serviceKey) => {
-    if (!serviceKey || serviceKey === statsData.current_service?.service_key) return;
+    if (
+      !serviceKey ||
+      (statsData.current_service?.status === 'in_progress' &&
+        serviceKey === statsData.current_service?.service_key)
+    ) {
+      return;
+    }
 
     setSwitching(true);
     try {
@@ -358,22 +366,48 @@ export function Dashboard() {
           <div className="space-y-1.5">
             <div className="relative">
               <select
-                value={statsData.current_service?.service_key || '1st_service'}
+                value={
+                  statsData.current_service?.status === 'in_progress'
+                    ? statsData.current_service.service_key
+                    : ''
+                }
                 onChange={(e) => handleServiceChange(e.target.value)}
                 disabled={switching}
                 className="w-full bg-slate-950 border border-slate-700 hover:border-amber-500/60 text-slate-100 text-sm font-bold rounded-lg px-2.5 py-1.5 pr-8 appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500"
               >
-                <option value="1st_service">1st Service</option>
-                <option value="2nd_service">2nd Service</option>
-                <option value="tuesday_service">Tuesday Service</option>
-                <option value="thursday_service">Thursday Service</option>
+                {statsData.current_service?.status !== 'in_progress' && (
+                  <option value="" disabled>
+                    Select service to start...
+                  </option>
+                )}
+                {(statsData.services && statsData.services.filter((s) => s.status !== 'completed').length > 0
+                  ? statsData.services.filter((s) => s.status !== 'completed')
+                  : [
+                      { service_key: '1st_service', name: '1st Service' },
+                      { service_key: '2nd_service', name: '2nd Service' },
+                      { service_key: 'tuesday_service', name: 'Tuesday Service' },
+                      { service_key: 'thursday_service', name: 'Thursday Service' },
+                    ]
+                ).map((svc) => (
+                  <option key={svc.service_key || svc.id} value={svc.service_key}>
+                    {svc.name}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
             </div>
-            <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Active in-progress service
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {statsData.current_service?.status === 'in_progress' ? 'Active service' : 'No active service'}
+              </p>
+              <Link
+                to="/services"
+                className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold transition-colors"
+              >
+                Manage &rarr;
+              </Link>
+            </div>
           </div>
         </div>
 
