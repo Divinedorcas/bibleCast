@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ProjectionController;
 use App\Http\Controllers\Api\ProjectionQueueController;
 use App\Http\Controllers\Api\SavedPassageController;
+use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SpeechController;
 use Illuminate\Support\Facades\Route;
 
@@ -62,10 +63,19 @@ $registerRoutes = function () {
     Route::delete('/projection-queues/{id}', [ProjectionQueueController::class, 'destroy']);
     Route::post('/projection-queues/{id}/project', [ProjectionQueueController::class, 'project']);
 
-    // Dashboard & Services Real Stats Endpoints
+    // Dashboard & Church Service Management Endpoints
     Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
-    Route::get('/services', [DashboardController::class, 'services']);
+    Route::get('/services', [ServiceController::class, 'index']);
+    Route::get('/services/previous', [ServiceController::class, 'previous']);
+    Route::post('/services', [ServiceController::class, 'store']);
     Route::post('/services/switch', [DashboardController::class, 'switchService']);
+    Route::get('/services/{id}', [ServiceController::class, 'show']);
+    Route::put('/services/{id}', [ServiceController::class, 'update']);
+    Route::patch('/services/{id}', [ServiceController::class, 'update']);
+    Route::post('/services/{id}/schedule', [ServiceController::class, 'schedule']);
+    Route::post('/services/{id}/start', [ServiceController::class, 'start']);
+    Route::post('/services/{id}/end', [ServiceController::class, 'end']);
+    Route::delete('/services/{id}', [ServiceController::class, 'destroy']);
 
     // Protected Routes (Sanctum Token Guarded)
     Route::middleware('auth:sanctum')->group(function () {

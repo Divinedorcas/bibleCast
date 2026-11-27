@@ -2,24 +2,34 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Service extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'name',
+        'preacher_name',
+        'description',
         'service_key',
         'service_date',
         'start_time',
         'end_time',
         'status',
+        'started_at',
+        'ended_at',
         'created_by',
     ];
 
     protected $casts = [
-        'service_date' => 'date',
+        'service_date' => 'date:Y-m-d',
+        'started_at'   => 'datetime',
+        'ended_at'     => 'datetime',
     ];
 
     /**
@@ -44,6 +54,58 @@ class Service extends Model
     public function queueItems(): HasMany
     {
         return $this->hasMany(ProjectionQueue::class);
+    }
+
+    /**
+     * Spoken scripture detections captured during this service.
+     */
+    public function detectedReferences(): HasMany
+    {
+        return $this->hasMany(DetectedReference::class);
+    }
+
+    /**
+     * Scope for scheduled upcoming services.
+     */
+    public function scopeScheduled($query)
+    {
+        return $query->where('status', 'scheduled');
+    }
+
+    /**
+     * Scope for currently live in-progress services.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'in_progress');
+    }
+
+    /**
+     * Scope for completed / previous services ordered most recent first.
+     */
+    public function scopePrevious($query)
+    {
+        return $query->where('status', 'completed')
+            ->orderByDesc('ended_at')
+            ->orderByDesc('service_date')
+            ->orderByDesc('id');
+    }
+
+    /**
+     * Generate a guaranteed-unique service key for custom church services.
+     */
+    public static function generateUniqueKey(string $name): string
+    {
+        $base = Str::slug($name, '_') ?: 'church_service';
+        $candidate = $base;
+        $counter = 1;
+
+        while (self::where('service_key', $candidate)->exists()) {
+            $candidate = "{$base}_{$counter}";
+            $counter++;
+        }
+
+        return $candidate;
     }
 
     /**
@@ -91,7 +153,7 @@ class Service extends Model
         $today = now()->toDateString();
         $defaults = self::defaultServices();
 
-        foreach ($defaults as $index => $def) {
+        foreach ($defaults as $def) {
             self::firstOrCreate(
                 ['service_key' => $def['service_key']],
                 [
@@ -99,6 +161,7 @@ class Service extends Model
                     'status'       => $def['status'],
                     'service_date' => $today,
                     'start_time'   => $def['start_time'],
+                    'started_at'   => $def['status'] === 'in_progress' ? now() : null,
                 ]
             );
         }

@@ -29,7 +29,7 @@ class DashboardController extends Controller
 
         // 2. Current Active Service
         $currentService = Service::where('status', 'in_progress')->first()
-            ?? Service::where('service_key', '1st_service')->first()
+            ?? Service::where('status', 'scheduled')->orderBy('id')->first()
             ?? Service::first();
 
         // All 4 services (1st service, 2nd service, tuesday service, thursday service)
@@ -130,9 +130,12 @@ class DashboardController extends Controller
         ]);
 
         // Activate target service
+        $now = Carbon::now();
         $target->update([
             'status'     => 'in_progress',
-            'start_time' => Carbon::now()->format('H:i:s'),
+            'start_time' => $now->format('H:i:s'),
+            'started_at' => $now,
+            'ended_at'   => null,
         ]);
 
         return response()->json([
